@@ -116,7 +116,7 @@ class GraphRelativePositionalEncodingNetwork(torch.nn.Module):
         self.layered_stem = torch.nn.ModuleList([
             EncoderLayer(
                 model_dim=model_dimension,
-                ffn_size=feedforward_dimension,
+                feedforward_dim=feedforward_dimension,
                 dropout_rate=dropout,
                 attention_dropout_rate=attention_dropout,
                 num_heads=number_of_heads,
