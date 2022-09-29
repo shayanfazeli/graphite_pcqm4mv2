@@ -1,2 +1,2 @@
 from .node import AddTaskNode, EncodeNode2NodeConnectionType,  EncodeNode2NodeShortestPathLengthType, EncodeNode2NodeShortestPathFeatureTrajectory, EncodeNodeType
-from .edge import EncodeEdgeType
+from .edge import EncodeEdgeType, ComenetEdgeFeatures
