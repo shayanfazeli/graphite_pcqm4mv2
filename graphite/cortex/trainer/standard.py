@@ -1,4 +1,5 @@
 from typing import Dict, List, Any
+import copy
 import wandb
 from torch.cuda.amp import GradScaler
 from tqdm import tqdm
@@ -10,7 +11,9 @@ import torch.distributed
 import torch.nn
 import torchmetrics
 from graphite.cortex.trainer.base import TrainerBase
-from graphite.utilities.logging import get_logger
+from graphite.utilities.distributed.utilities import prepare_model_for_ddp_if_requested, sync_batchnorms
+from graphite.utilities.logging import get_logger, log_message
+from graphite.utilities.logging.logger import grad_stats
 from graphite.utilities.mixed_precision import apex_initialize_optimizer
 
 logger = get_logger(__name__)
@@ -21,6 +24,7 @@ class Trainer(TrainerBase):
             self,
             args,
             config,
+            modes: List[str],
             max_epochs: int,
             model,
             metric_monitor: Dict[str, Any],
@@ -32,25 +36,50 @@ class Trainer(TrainerBase):
             scheduling_interval: str,
             mixed_precision: bool,
             mixed_precision_backend: str,
+            limit_batch_count: int = None,
+            validation_interval: int = 1
     ):
         super(Trainer, self).__init__()
+
+        # - storing the variables
         self.args = args
         self.config = config
-        self.max_epochs = max_epochs
         self.start_epoch = 0
+        self.max_epochs = max_epochs
+        self.device = device
+        self.modes = modes
+        self.limit_batch_count = limit_batch_count
+        self.validation_interval = validation_interval
+
+        # - mixed precision
         self.mixed_precision = mixed_precision
         self.mixed_precision_backend = mixed_precision_backend
-        self.device = device
+        self.mixed_precision_preparations()
+
+        # - modules
         self.criterion = criterion
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.its_wandb_process = (not self.args.distributed) or (self.args.local_rank == 0)
 
-        self.metric_monitor = metric_monitor
-        self.initialize_metric_monitor()
+        # - distributed learning preparations if needed
+        if self.args.distributed:
+            self.model = prepare_model_for_ddp_if_requested(model=self.model, args=self.args)
+            self.model = sync_batchnorms(model=self.model, args=args, strategy=None)
+            log_message(logger, '~> model is modified for distributed training', self.args)
+        else:
+            self.model = self.model.to(self.device)
+
+        # if self.its_wandb_process:
+        #     wandb.watch(self.model, criterion=self.criterion, log='all', log_freq=1)
+        #     log_message(logger, "wandb watch", self.args)
 
         # - building the metrics
         self.reset_metrics()
+        self.metric_monitor = metric_monitor
+        self.initialize_metric_monitor()
+        log_message(logger, '~> metrics are prepared', self.args)
 
         # - owning the data handler
         self.data_handler = data_handler
@@ -62,7 +91,6 @@ class Trainer(TrainerBase):
         assert scheduling_interval in ['step', 'epoch'], f'unknown scheduling interval: {scheduling_interval}'
         self.scheduling_interval = scheduling_interval  # step or epoch
 
-
     def initialize_metric_monitor(self):
         if self.metric_monitor['direction'] == 'min':
             self.best_monitored_metric = numpy.inf
@@ -72,8 +100,13 @@ class Trainer(TrainerBase):
             raise ValueError
 
     def mixed_precision_preparations(self):
+        """
+        mixed precision setup
+        """
         if not self.mixed_precision:
             return
+
+        log_message(logger, f"~> mixed precision training (backend: {self.mixed_precision_backend})", self.args)
 
         if self.mixed_precision_backend == 'amp':
             self.grad_scaler = GradScaler()
@@ -108,10 +141,17 @@ class Trainer(TrainerBase):
             epoch_index: int,
             dataloader
     ):
-        dataloader_tqdm = tqdm(enumerate(dataloader))
+        log_message(logger, f"""
+        ~> training (split: {mode}) - [epoch: {epoch_index}]
+        """, self.args)
+        dataloader_tqdm = tqdm(enumerate(dataloader), total=len(dataloader))
         for batch_index, batch_data in dataloader_tqdm:
-            self.train_step_and_handled_mixed_precision(mode=mode, batch_index=batch_index, batch_data=self.move_batch_to_device(batch_data))
-
+            if self.limit_batch_count is not None:
+                if batch_index > self.limit_batch_count:
+                    break
+            batch_loss_value = self.train_step_and_handle_mixed_precision(mode=mode, batch_index=batch_index, batch_data=self.move_batch_to_device(batch_data))
+            dataloader_tqdm.set_description(f'batch_loss: {batch_loss_value:.2f}')
+            dataloader_tqdm.refresh()
         return self.monitor_metrics(epoch_index=epoch_index, mode=mode)
 
     def monitor_metrics(self, epoch_index, mode: str):
@@ -125,13 +165,19 @@ class Trainer(TrainerBase):
         metrics.update(
             dict(epoch_index=epoch_index)
         )
-        wandb.log({mode: metrics})
+
+        if self.its_wandb_process:
+            wandb.log({mode: metrics})
 
         return metrics
 
+    def zero_grad(self):
+        for p in self.model.parameters():
+            if p.requires_grad:
+                p.grad = None
 
-    def train_step_and_handled_mixed_precision(self, mode: str, batch_index: int, batch_data):
-        self.optimizer.zero_grad()
+    def train_step_and_handle_mixed_precision(self, mode: str, batch_index: int, batch_data):
+        self.zero_grad()
         if self.mixed_precision:
             if self.mixed_precision_backend == 'amp':
                 with torch.cuda.amp.autocast():
@@ -154,6 +200,8 @@ class Trainer(TrainerBase):
         if self.scheduling_interval == 'step':
             self.scheduler.step()
 
+        return loss.item()
+
     def move_batch_to_device(self, batch):
         for k in batch:
             if isinstance(batch[k], torch.Tensor) or isinstance(batch[k], Batch) or isinstance(batch[k], Data):
@@ -165,13 +213,16 @@ class Trainer(TrainerBase):
             else:
                 raise Exception(f"unsupported batch element")
 
+        return batch
+
     def train_step(self, mode: str, batch_index: int, batch_data):
         # - latent representations
         outputs = self.model(batch_data)
         loss = self.compute_loss(outputs, batch_data)
         outputs.update(dict(loss=loss, y=batch_data['y']))
         self.metrics_forward(mode=mode, outputs=outputs)
-        wandb.log({mode: dict(loss=loss, step_index=batch_index)})
+        if self.its_wandb_process:
+            wandb.log({mode: dict(loss=loss, step_index=batch_index)})
         return loss
 
     def compute_loss(self, outputs, batch_data):
@@ -184,8 +235,14 @@ class Trainer(TrainerBase):
             epoch_index: int,
             dataloader
     ):
+        log_message(logger, f"""
+        ~> validation (split: {mode}) - [epoch: {epoch_index}]
+        """, self.args)
         dataloader_tqdm = tqdm(enumerate(dataloader))
         for batch_index, batch_data in dataloader_tqdm:
+            if self.limit_batch_count is not None:
+                if batch_index > self.limit_batch_count:
+                    break
             self.validate_step(mode=mode, batch_index=batch_index, batch_data=self.move_batch_to_device(batch_data))
         return self.monitor_metrics(epoch_index=epoch_index, mode=mode)
 
@@ -205,8 +262,13 @@ class Trainer(TrainerBase):
         self.optimizer.load_state_dict(data['model'])
         self.scheduler.load_state_dict(data['model'])
 
-        if self.mixed_precision and self.mixed_precision_backend == 'amp':
-            self.grad_scaler.load_state_dict(data['grad_scaler'])
+        if self.mixed_precision:
+            if self.mixed_precision_backend == 'amp':
+                self.grad_scaler.load_state_dict(data['grad_scaler'])
+            elif self.mixed_precision_backend == 'apex':
+                apex.amp.load_state_dict(data['amp'])
+            else:
+                raise ValueError()
 
         self.start_epoch = data['epoch_index'] + 1
 
@@ -227,23 +289,28 @@ class Trainer(TrainerBase):
             else:
                 filepath = os.path.join(self.args.logdir, 'ckpts', f"epoch={epoch_index}{prefix}.pth")
 
-            if self.mixed_precision and self.mixed_precision_backend == 'amp':
-                data_dump['grad_scaler'] = self.grad_scaler.state_dict()
+            if self.mixed_precision:
+                if self.mixed_precision_backend == 'amp':
+                    data_dump['grad_scaler'] = self.grad_scaler.state_dict()
+                elif self.mixed_precision_backend == 'apex':
+                    data_dump['amp'] = apex.amp.state_dict()
+                else:
+                    raise ValueError()
 
             torch.save(data_dump, filepath)
+            log_message(logger, f"~> checkpoint stored (filepath={filepath}).", self.args)
 
         if self.args.distributed:
             torch.distributed.barrier()
 
-
     def run(self):
         # - trying to resume
         if self.args.resume:
-            logger.info("~> attempting to resume from existing checkpoint")
+            log_message(logger, "~> attempting to resume from existing checkpoint", self.args)
             self.resume()
 
         for epoch_index in range(self.start_epoch, self.max_epochs, 1):
-            for mode in [e for e in self.dataloaders if 'train' in e]:
+            for mode in [e for e in self.modes if 'train' in e]:
                 self.train_epoch(
                     epoch_index=epoch_index,
                     dataloader=self.dataloaders[mode],
@@ -252,12 +319,13 @@ class Trainer(TrainerBase):
             if self.scheduling_interval == 'epoch':
                 self.scheduler.step()
 
-            for mode in [e for e in self.dataloaders if 'train' not in e]:
-                self.validate_epoch(
-                    epoch_index=epoch_index,
-                    dataloader=self.dataloaders[mode],
-                    mode=mode
-                )
+            if epoch_index % self.validation_interval == self.validation_interval - 1:
+                for mode in [e for e in self.modes if 'train' not in e]:
+                    self.validate_epoch(
+                        epoch_index=epoch_index,
+                        dataloader=self.dataloaders[mode],
+                        mode=mode
+                    )
 
             self.save(epoch_index=epoch_index)
             self.reset_metrics()

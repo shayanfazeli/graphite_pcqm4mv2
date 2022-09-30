@@ -2,7 +2,7 @@ import abc
 from typing import Dict, List, Any
 import torch.utils.data.dataloader
 import torchvision.transforms
-
+from graphite.data.pcqm4mv2.pyg.collator import collate_fn
 from graphite.data.handler.base import DataHandlerBase
 from graphite.data.pcqm4mv2.pyg import PCQM4Mv2Dataset  # the 2d dataset
 import graphite.data.pcqm4mv2.pyg.transforms as transforms_lib
@@ -67,10 +67,11 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
         dataloaders = {
             mode: torch.utils.data.DataLoader(
                 dataset,
-                shuffle=False,
+                # shuffle='train' in mode,
                 batch_size=self.batch_size,
                 sampler=samplers[mode],
+                collate_fn=collate_fn,
                 **self.dataloader_base_args
-            ) for mode, dataset in datasets
+            ) for mode, dataset in datasets.items()
         }
         return dataloaders
