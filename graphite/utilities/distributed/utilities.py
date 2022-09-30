@@ -7,6 +7,10 @@ import torch.distributed
 import apex
 from apex.parallel.LARC import LARC
 
+from graphite.utilities.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def setup_distributed_training_if_requested(args: argparse.Namespace) -> argparse.Namespace:
     """
@@ -23,19 +27,18 @@ def setup_distributed_training_if_requested(args: argparse.Namespace) -> argpars
     `argparse.Namespace`:
         The modified argument namespace to be used by the script.
     """
+    args.distributed = False
     # - first checking the os environmental variables
     # for presence of distributed guidelines
     if "WORLD_SIZE" in os.environ:
         args.world_size = int(os.environ["WORLD_SIZE"])
-        args.distributed = True
+        args.distributed = args.world_size > 1
 
     # - checking slurm job
     args.is_slurm_job = "SLURM_JOB_ID" in os.environ
     if args.is_slurm_job:
         args.distributed = True
 
-    # - the distributed
-    args.distributed = args.world_size > 1
     ngpus_per_node = torch.cuda.device_count()
 
     if args.distributed:
@@ -44,8 +47,9 @@ def setup_distributed_training_if_requested(args: argparse.Namespace) -> argpars
             args.gpu = args.local_rank
         elif args.is_slurm_job:  # for slurm scheduler
             args.rank = int(os.environ['SLURM_PROCID'])
-            args.gpu = args.rank % torch.cuda.device_count()
-        else:
+            args.local_rank = args.rank % torch.cuda.device_count()
+            args.gpu = args.local_rank
+        else:  # torchrun
             args.local_rank = int(os.environ['LOCAL_RANK'])
             args.world_size = int(os.environ['WORLD_SIZE'])
             args.rank = int(os.environ['RANK'])
@@ -54,7 +58,7 @@ def setup_distributed_training_if_requested(args: argparse.Namespace) -> argpars
 
         torch.distributed.init_process_group(
             backend=args.dist_backend,
-            init_method=args.dist_url,
+            # init_method=args.dist_url,
             world_size=args.world_size,
             rank=args.rank
         )
@@ -66,6 +70,15 @@ def setup_distributed_training_if_requested(args: argparse.Namespace) -> argpars
                 pass
             builtins.print = print_pass
 
+    if args.distributed and args.rank == 0:
+        logger.info(f"""
+        ~> distributed training: initialized: 
+            world_size: {args.world_size}
+            rank: {args.rank}
+            local_rank: {args.local_rank}
+            dist_url: {args.dist_url}
+        """)
+
     return args
 
 
@@ -73,14 +86,20 @@ def prepare_model_for_ddp_if_requested(model: torch.nn.Module, args: argparse.Na
     """
     Parameters
     ----------
+    model: `torch.nn.Module`, required
+        The model
+
     args: `argparse.Namespace`, required
         The arguments
+
     Returns
     ----------
+    `torch.nn.Module`:
+        The DDP wrapped model
     """
     assert args.gpu is not None, f"`args.gpu` cannot be `None` in the distributed processes."
     model.cuda()
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])#, find_unused_parameters=True)
     return model
 
 

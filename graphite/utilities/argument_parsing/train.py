@@ -1,7 +1,6 @@
 import argparse
 
 
-
 def distributed_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument('--world-size', default=-1, type=int,
                         help='number of nodes for distributed training')
@@ -17,7 +16,7 @@ def distributed_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser
 
 
 def base_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.add_argument("config", required=True, help="path to the config file")
+    parser.add_argument("config", help="path to the config file")
     parser.add_argument("--seed", default=42, help="Random seed.", type=int)
     parser.add_argument("--clean", action="store_true", help="Restart training and erase previous checkpoint contents.")
     parser.add_argument("--name", type=str, required=True, help="experiment title")

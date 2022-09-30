@@ -1,0 +1,20 @@
+model = dict(
+    type='Regressor',
+    args=dict(
+        num_layers=0,
+        input_dim=1024,
+        output_dim=1,
+        model_config=dict(
+            type='GraphRelativePositionalEncodingNetwork',
+            args=dict(
+                model_dimension=1024,
+                number_of_heads=32,
+                number_of_layers=18,
+                feedforward_dimension=1024,
+                dropout=0.1,
+                attention_dropout=0.1,
+                shortest_path_length_upperbound=5,
+                perturbation=0.0,
+                independent_layer_embeddings=False))
+    )
+)

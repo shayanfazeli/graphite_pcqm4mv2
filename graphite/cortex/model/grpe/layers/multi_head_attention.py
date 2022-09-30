@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn
 
@@ -106,10 +107,10 @@ class MultiHeadAttention(torch.nn.Module):
         a = a * self.scale
         if mask is not None:
             a = a.masked_fill(
-                mask.view(mask.shape[0], 1, 1, mask.shape[1]), float("-inf")
+                mask.view(mask.shape[0], 1, 1, mask.shape[1]), float('-inf')
             )
-        # a = torch.softmax(a.clip(min=-10000), dim=3) # in case of inf causing nans
-        a = torch.softmax(a, dim=3)
+        a = torch.softmax(a.clip(min=-100000), dim=3) # in case of inf causing nans
+        # a = torch.softmax(a, dim=3)
 
         # - attention dropout
         a = self.att_dropout(a)

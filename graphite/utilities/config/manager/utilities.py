@@ -22,6 +22,7 @@ def read_config(args, convert_to_dict: bool = True) -> Union[Config, Dict[str, A
     config = apply_overrides(config, args.config_overrides)
     return config
 
+
 def read_config_filepath(filepath, convert_to_dict: bool = True) -> Union[Config, Dict[str, Any]]:
     if convert_to_dict:
         return dict(Config.fromfile(filepath))

@@ -67,7 +67,7 @@ class DiscreteConnectionTypeEmbeddingAttentionBias(AttentionBiasBase):
         batch_size, num_heads, num_nodes, num_nodes = attention_weights.size()
         supplementary_value = torch.zeros(
             (batch_size, num_heads, num_nodes, self.num_connection_types)
-        ).to(attention_weights.device)
+        ).to(attention_weights.device).float()
 
         # - note that edge_types is of `dim=batch_size, num_nodes, num_nodes`, therefore,
         # upon repeating we will have `dim=batch_size, num_heads, num_nodes, num_nodes` with each

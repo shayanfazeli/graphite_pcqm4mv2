@@ -40,7 +40,6 @@ class DiscreteConnectionTypeEmbeddingPlusConnectionRepresentationAttentionBias(
             torch.nn.Linear(self.model_dim // self.num_heads, self.model_dim // self.num_heads),
         )
 
-    @overrides()
     def forward(
             self,
             queries: torch.Tensor,

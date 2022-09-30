@@ -14,7 +14,7 @@ class Regressor(torch.nn.Module):
         super(Regressor, self).__init__()
 
         # - core model
-        self.model = getattr(model_lib, model_config['type'])(**model_config['args'])
+        self.add_module('model', getattr(model_lib, model_config['type'])(**model_config['args']))
 
         # - projector
         self.projector = [torch.nn.LayerNorm(input_dim)]

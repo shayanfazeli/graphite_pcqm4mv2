@@ -45,6 +45,6 @@ class FeedForwardNetwork(torch.nn.Module):
         """
         x = self.layer1(x)
         x = self.gelu(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
         x = self.layer2(x)
         return x
