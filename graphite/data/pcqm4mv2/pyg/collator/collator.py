@@ -6,7 +6,9 @@ from graphite.data.utilities.sequence_collate.utilities import pad_sequence, pad
 default_collate_fn = Collater([], [
     'node2node_shortest_path_length_type',
     'node2node_connection_type',
-    'shortest_path_feature_trajectory'
+    'shortest_path_feature_trajectory',
+    'molecule_fingerprint',
+    'molecule_descriptor'
 ])  # ([dataset_transformed[i] for i in [1,2,3]])
 
 
@@ -67,6 +69,12 @@ def collate_fn(batch):
             shortest_path_feature_trajectory.append(tmp)
 
         output['shortest_path_feature_trajectory'] = torch.stack(shortest_path_feature_trajectory).long()
+
+    if 'molecule_fingerprint' in batch[0]:
+        output['molecule_fingerprint'] = torch.stack([g['molecule_fingerprint'] for g in batch], dim=0)
+
+    if 'molecule_descriptor' in batch[0]:
+        output['molecule_descriptor'] = torch.stack([g['molecule_descriptor'] for g in batch], dim=0)
 
     for k in output:
         if isinstance(k, torch.Tensor):

@@ -18,4 +18,5 @@ class AddTaskNode(BasePygGraphitePCQM4MTransform):
 
     def forward(self, g: Data) -> Data:
         g['x'] = torch.cat((g.x, self.feat * torch.ones((1, g.x.shape[1]), dtype=g.x.dtype).to(g.x.device)), dim=0)
+        g['node_type'] = torch.cat((g.node_type, self.feat * torch.ones((1, g.node_type.shape[1]), dtype=g.node_type.dtype).to(g.node_type.device)), dim=0)
         return g
