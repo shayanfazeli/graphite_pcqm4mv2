@@ -1,3 +1,4 @@
+import argparse
 import logging
 
 
@@ -20,3 +21,23 @@ def get_logger(name, level=None):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     return logger
+
+
+def log_message(logger, msg, args: argparse.Namespace, level='info'):
+    if 'distributed' not in args:
+        getattr(logger, level)(msg)
+    elif (not args.distributed) or (args.rank == 0):
+        getattr(logger, level)(msg)
+
+
+def grad_stats(logger, model, args):
+    for n, p in model.named_parameters():
+        if p.requires_grad:
+            try:
+                log_message(logger, f"""
+                {n}: {p.grad.data.abs().mean().item():.4f}+-({p.grad.data.abs().std().item():.4f}
+                """, args)
+            except:
+                log_message(logger, f"""
+                {n}: failed - no grad
+                """, args)
