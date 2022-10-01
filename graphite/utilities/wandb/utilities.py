@@ -22,6 +22,13 @@ def initialize_wandb(args: argparse.Namespace, config: Dict[str, Any] = None) ->
     config: `Dict[str, Any]`, optional (default=None)
         The parsed configuration
     """
+    if args.wandb_offline:
+        assert args.wandb_apikey is not None, """
+        Since you have selected offline wandb logging, please provide your
+        apikey (from the setting page of your account) via `--wandb_apikey` as well."""
+        os.environ["WANDB_API_KEY"] = args.wandb_apikey
+        os.environ["WANDB_MODE"] = "offline"
+
     args.logdir = os.path.join(args.logdir, args.project, args.name, f'seed_{args.seed}')
     if not (args.distributed and args.local_rank != 0):
         if args.id is None:
