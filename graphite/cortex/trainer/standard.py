@@ -259,8 +259,8 @@ class Trainer(TrainerBase):
         data = torch.load(filepath, map_location='cpu')
 
         self.model.load_state_dict(data['model'])
-        self.optimizer.load_state_dict(data['model'])
-        self.scheduler.load_state_dict(data['model'])
+        self.optimizer.load_state_dict(data['optimizer'])
+        self.scheduler.load_state_dict(data['scheduler'])
 
         if self.mixed_precision:
             if self.mixed_precision_backend == 'amp':
