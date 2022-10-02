@@ -8,7 +8,10 @@ default_collate_fn = Collater([], [
     'node2node_connection_type',
     'shortest_path_feature_trajectory',
     'molecule_fingerprint',
-    'molecule_descriptor'
+    'molecule_descriptor',
+    'positions_3d',
+    'comenet_features1',
+    'comenet_features2'
 ])  # ([dataset_transformed[i] for i in [1,2,3]])
 
 
@@ -75,6 +78,17 @@ def collate_fn(batch):
 
     if 'molecule_descriptor' in batch[0]:
         output['molecule_descriptor'] = torch.stack([g['molecule_descriptor'] for g in batch], dim=0)
+
+    # - 3d features
+    for k in ['positions_3d', 'comenet_features1', 'comenet_features2']:
+        if k in batch[0]:
+            output[k] = pad_sequence(
+                [g[k] for g in batch],
+                stack_dim=0,
+                pad_dim=0,
+                pad_value=0,
+                max_len=None  # infer
+            )
 
     for k in output:
         if isinstance(k, torch.Tensor):

@@ -1,10 +1,9 @@
 import os
 import os.path as osp
 import rdkit
-import shutil
 from ogb.utils import smiles2graph
 from ogb.utils.torch_util import replace_numpy_with_torchtensor
-from ogb.utils.url import decide_download, download_url, extract_zip
+from ogb.utils.url import extract_zip
 import pandas as pd
 import numpy as np
 import datamol as dm
@@ -19,6 +18,7 @@ from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit
 from graphite.utilities.logging import get_logger
 from graphite.utilities.io.extract_tar import extract_tar_gz_file
 from graphite.utilities.rdkit import add_conformers
+from graphite.utilities.ogb import mol2graph
 
 logger = get_logger(__name__)
 
@@ -43,6 +43,8 @@ class PCQM4Mv23DDataset(InMemoryDataset):
             - root (str): the dataset folder will be located at root/pcqm4m_kddcup2021
             - smiles2graph (callable): A callable function that converts a SMILES string into a graph object
                 * The default smiles2graph requires rdkit to be installed
+
+            # todo: add support for radius_graph from `torch_cluster`
         """
         self.verbose = verbose
         self.original_root_dir = root
@@ -118,6 +120,8 @@ class PCQM4Mv23DDataset(InMemoryDataset):
 
     def process(self):
         data_df = pd.read_csv(osp.join(self.raw_dir, "data.csv.gz"))
+        # - in the 3d dataset, we wont use the smiles (for train) and use the
+        # sdf instead.
         smiles_list = data_df["smiles"]
         homolumogap_list = data_df["homolumogap"]
 
@@ -133,7 +137,14 @@ class PCQM4Mv23DDataset(InMemoryDataset):
 
             smiles = smiles_list[i]
             homolumogap = homolumogap_list[i]
-            graph = self.smiles2graph(smiles)
+
+            # - even for 3d data, we would still
+            # use the bonds instead of `radius_graph`
+            if i in train_indices:
+                mol = suppl[i]
+            else:
+                mol = rdkit.Chem.MolFromSmiles(smiles)
+            graph = mol2graph(mol)
 
             assert len(graph["edge_feat"]) == graph["edge_index"].shape[1]
             assert len(graph["node_feat"]) == graph["num_nodes"]
@@ -146,17 +157,12 @@ class PCQM4Mv23DDataset(InMemoryDataset):
 
             # 3d graph for train indices
             if i in train_indices:
-                mol = suppl[i]
+                # - storing the positions_3d
                 positions = torch.from_numpy(mol.GetConformer(0).GetPositions()).float()
                 assert data.num_nodes == positions.shape[0]
                 data['positions_3d'] = positions
-                if self.additional_conformer_count > 0:
-                    mol = dm.conformers.generate(mol, align_conformers=True)
-                    conformers = mol.GetConformers()
-                    for conf_index, conformer in enumerate(conformers):
-                        positions = torch.from_numpy(conformer.GetPositions()).float()
-                        assert data.num_nodes == positions.shape[0]
-                        data[f'positions_3d_{conf_index}'] = positions
+            else:
+                data['positions_3d'] = torch.zeros((data.x.shape[0], 3)).float()
 
             if self.descriptor:
                 mol = rdkit.Chem.MolFromSmiles(smiles)
@@ -192,5 +198,3 @@ class PCQM4Mv23DDataset(InMemoryDataset):
                 torch.load(self.split_dict_filepath)
             )
         return split_dict
-
-
