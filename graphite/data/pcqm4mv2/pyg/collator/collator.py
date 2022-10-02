@@ -88,7 +88,7 @@ def collate_fn(batch):
                 pad_dim=0,
                 pad_value=0,
                 max_len=None  # infer
-            )
+            )[0]
 
     for k in output:
         if isinstance(k, torch.Tensor):
