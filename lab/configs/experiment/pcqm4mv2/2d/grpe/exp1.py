@@ -9,9 +9,27 @@ _base_ = [
 
 __number_of_processes = 4  # this is not directly used, the caller has to make sure it is compatible.
 __warmup_epochs = 3
-__batch_size = 256  # make sure it is consistent with the imported dataset in _base_
+__batch_size = 256
+__shortest_path_length_upperbound = 5  # for the shortest-path-type (discrete) to be embedded
 __max_epochs = 400
 __number_of_training_items = 3378606
+
+
+data = dict(
+    args=dict(
+        batch_size=__batch_size
+    )
+)
+
+model = dict(
+    args=dict(
+        model_config=dict(
+            args=dict(
+                shortest_path_length_upperbound=__shortest_path_length_upperbound,
+            ))
+    )
+)
+
 
 loss = dict(
     type='L1Loss',
