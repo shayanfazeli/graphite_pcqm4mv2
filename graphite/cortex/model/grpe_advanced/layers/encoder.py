@@ -53,6 +53,7 @@ class EncoderLayer(torch.nn.Module):
         edge_bias_guide: torch.nn.Module,
         shortest_path_length_bias_guide: torch.nn.Module,
         shortest_path_bias_guide: torch.nn.Module,
+        shortest_path_feature_trajectory: torch.Tensor = None,
         mask: torch.Tensor = None,
     ) -> torch.Tensor:
         """
@@ -89,6 +90,7 @@ class EncoderLayer(torch.nn.Module):
             shortest_path_bias_guide=shortest_path_bias_guide,
             distance=distance,
             connection_reps=connection_reps,
+            shortest_path_feature_trajectory=shortest_path_feature_trajectory,
             mask=mask,
         )
         reps = self.self_attention_dropout(reps)

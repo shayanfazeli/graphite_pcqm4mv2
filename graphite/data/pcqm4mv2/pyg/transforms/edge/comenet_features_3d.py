@@ -125,6 +125,6 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         tau = torch.atan2(b, a)
         tau[tau < 0] = tau[tau < 0] + math.pi
 
-        g['comenet_feature1'] = self.feature1(dist, theta, phi)
-        g['comenet_feature2'] = self.feature2(dist, tau)
+        g['comenet_features1'] = self.feature1(dist, theta, phi)
+        g['comenet_features2'] = self.feature2(dist, tau)
         return g

@@ -23,19 +23,27 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
     ```
 
     Which will take around 15ms to complete.
+
+    Parameters
+    ----------
+    num_heads: `int`,
+    code_dim: `int`,
+    maximum_supported_path_length: `int`, optional (default=10)
     """
 
     def __init__(
             self,
             num_heads: int,
+            code_dim: int,
             maximum_supported_path_length: int = 10,
     ):
         super(PathTrajectoryEncodingAttentionBias, self).__init__()
 
         # - preparing the weights for these
         self.num_head = num_heads
-        self.edge_emb = torch.nn.Embedding(3, num_heads, padding_idx=0)
-        self.codebook = torch.nn.Embedding(maximum_supported_path_length, num_heads * num_heads)
+        self.code_dim = code_dim
+        self.edge_emb = torch.nn.Embedding(3, code_dim, padding_idx=0)
+        self.codebook = torch.nn.Embedding(maximum_supported_path_length, code_dim * num_heads)
         self.maximum_supported_path_length = maximum_supported_path_length
 
     def encode_path_edge_type(self, shortest_path_feature_trajectory: torch.Tensor) -> torch.Tensor:
@@ -55,6 +63,17 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
             `dim=(batch_size, max_node_number, max_node_number, L, num_head)`
         """
         return torch.matmul(shortest_path_feature_trajectory, self.edge_emb.weight)
+
+    def compute_supplementary_reps(
+            self,
+            attention_weights: torch.Tensor,
+            edge_types: torch.LongTensor,
+            values: torch.Tensor = None,
+    ) -> torch.Tensor:
+        """
+        This attention bias does not return any additional complementary values.
+        """
+        return 0
 
     def forward(
             self,
@@ -85,14 +104,14 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
 
         # `dim=(L, batch_size, max_node_number, max_node_number, num_head)`
         shortest_path_feature_trajectory = shortest_path_feature_trajectory.permute(3, 0, 1, 2, 4).view(
-            max_distance_length, -1, self.num_head)
+            max_distance_length, -1, self.code_dim)
 
         # - now for each attention head, the idea is that for each edge number in the path, we
         # have a different path
         # `dim=(batch_size, max_node_number, max_node_number, num_head)`
         path_reps = torch.bmm(
             shortest_path_feature_trajectory,
-            self.codebook.weight[:max_distance_length, :].view(max_distance_length, self.num_head, self.num_head)
+            self.codebook.weight[:max_distance_length, :].view(max_distance_length, self.code_dim, self.num_head)
         ).reshape(
             max_distance_length, batch_size, max_num_nodes, max_num_nodes, self.num_head
         ).permute(1, 2, 3, 0, 4).sum(-2)  # b, n, n, h

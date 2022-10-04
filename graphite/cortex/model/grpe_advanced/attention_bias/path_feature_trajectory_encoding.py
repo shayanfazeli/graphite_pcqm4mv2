@@ -5,44 +5,61 @@ import torch.nn
 
 class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
     """
-    Corresponds to the path encoding of the graphormer work.
+    This module's output corresponds to the path encoding of Graphormer.
 
-    Please note that the idea here depends on scalar encoding of
-    edge types.
+    __Remark__: It is user's responsibility to decide whether a single embedding
+    codebook is to be shared between each edge feature position (3 positions in
+    PCQM4Mv2 corresponding to bond features), or whether separate embedding
+    per feature position is needed. Note that once this module is initialized,
+    the `self.codebook` will be used on all edge features, thus, if you intend
+    to use separate embedding per feature index, make sure to use the dataset
+    transform as follows:
 
-    Regarding the forward variables, in the current collation, we can have:
-
+    ```python
+    EncodeNode2NodeShortestPathFeatureTrajectory(
+        max_length_considered=4,
+        feature_position_offset=4 # <-
+    )
     ```
-    %%time
-    shortest_path_feature_trajectory = g[0].ndata['shortest_path_feature_trajectory']
-    shortest_path_feature_trajectory = torch.cat((shortest_path_feature_trajectory, -torch.ones((shortest_path_feature_trajectory.size(0), 1, shortest_path_feature_trajectory.size(2), shortest_path_feature_trajectory.size(3)))), dim=1)
-    shortest_path_feature_trajectory = torch.stack([shortest_path_feature_trajectory for _ in range(32)])
-    shortest_path_lengths = g[0].ndata['node2node_shortest_path_length_type']
-    shortest_path_lengths = torch.stack([shortest_path_lengths for _ in range(32)])
-    attn_bias(shortest_path_feature_trajectory=shortest_path_feature_trajectory.to(device),shortest_path_lengths=shortest_path_lengths.to(device))
-    ```
 
-    Which will take around 15ms to complete.
+    This line ensures that, while edge features remain intact (and you can use them as intended by
+    any transform that follows after this), the copy that is used in creating the path trajectories
+    (which for every item is of dim `num_nodes, num_nodes, max_path_length, 3`), has gone through
+    the proper offset which has made it ready to be embedded.
 
     Parameters
     ----------
-    num_heads: `int`,
-    code_dim: `int`,
+    num_heads: `int`, required
+        The number of attention heads for constructing the biases
+
+    code_dim: `int`, required
+        The representation dimension of the internal codebook for edge feature embeddings and
+        the embedding of edge position in the path.
+
     maximum_supported_path_length: `int`, optional (default=10)
+        This value indicates the size of `self.codebook`, and MUST be larger than
+        the following line in the dataset transform:
+
+        ```python
+        EncodeNode2NodeShortestPathFeatureTrajectory(
+            max_length_considered=4, # <-
+            feature_position_offset=4
+        )
+        ```
     """
 
     def __init__(
             self,
             num_heads: int,
             code_dim: int,
-            maximum_supported_path_length: int = 10,
+            maximum_supported_path_length: int,  # has to be larger than the corresponding transform
     ):
         super(PathTrajectoryEncodingAttentionBias, self).__init__()
 
         # - preparing the weights for these
         self.num_head = num_heads
         self.code_dim = code_dim
-        self.edge_emb = torch.nn.Embedding(3, code_dim, padding_idx=0)
+        self.edge_emb = torch.nn.Embedding(30, code_dim, padding_idx=0)
         self.codebook = torch.nn.Embedding(maximum_supported_path_length, code_dim * num_heads)
         self.maximum_supported_path_length = maximum_supported_path_length
 
@@ -62,7 +79,19 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
         `torch.Tensor`:
             `dim=(batch_size, max_node_number, max_node_number, L, num_head)`
         """
-        return torch.matmul(shortest_path_feature_trajectory, self.edge_emb.weight)
+        return torch.mean(
+            self.edge_emb(
+                shortest_path_feature_trajectory,
+                # `dim=(batch_size, max_node_number, max_node_number, L, feature_dim=3)`
+            ),  # after selecting embeddings:
+            # `dim=(batch_size, max_node_number, max_node_number, L, feature_dim=3, code_dim)`
+            dim=-2
+        )  # after the mean reduction over edge feature positions:
+        # `dim=(batch_size, max_node_number, max_node_number, L, code_dim)`
+
+    def compute_supplementary_reps(self, *args, **kwargs):
+        """no effect"""
+        return 0
 
     def forward(
             self,
@@ -87,7 +116,7 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
         batch_size, max_num_nodes, _, max_distance_length, _ = shortest_path_feature_trajectory.size()
 
         # - with the addition of 1 (and given that 0 is considered padding), the paddings wont contribute
-        # `dim=(batch_size, max_node_number, max_node_number, L, num_head)`
+        # `dim=(batch_size, max_node_number, max_node_number, L, code_dim)`
         shortest_path_feature_trajectory = self.encode_path_edge_type(
             shortest_path_feature_trajectory=1 + shortest_path_feature_trajectory)
 

@@ -42,7 +42,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         embedding codebook (5 is just in case, in reality, there is unreachable and task distance).
 
     perturbation: `float`, optional(default=0.0)
-        Model perturbation rate, unused at the moment.
+        Node feature perturbation
 
     independent_layer_embeddings: `bool`, optional(default=False)
         Whether to create a separate bias guide per layer
@@ -55,12 +55,13 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             * `shortest_path`: based on the shortest path encoding (introduced in graphormer)
 
     path_encoding_length_upperbound: `int`, optional (default=5)
-        This parameter is relasted to the `shortest_path` attention bias.
+        This parameter is related to the `shortest_path` attention bias. To be precise,
+        this is dirrectly related to `max_length_considered` used in :cls:`EncodeNode2NodeShortestPathFeatureTrajectory`.
 
     path_encoding_code_dim: `int`, optional (default=None)
-        The dimension of each embedding for encoding the shortest path trajectory.
-
-    # todo: add the node centrality embedding based on degree.
+        The dimension of each embedding for encoding the shortest path trajectory. This parameter is related to
+        the `shortest_path` attention bias. To be precise, this is dirrectly related to `max_length_considered` used
+        in :cls:`EncodeNode2NodeShortestPathFeatureTrajectory`.
     """
 
     def __init__(
@@ -81,7 +82,8 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             ],
             path_encoding_length_upperbound: int = 5,
             path_encoding_code_dim: int = None,
-            encode_node_degree_centrality: bool = False
+            encode_node_degree_centrality: bool = False,
+            node_degree_upperbound: int = 50
     ):
         """constructor"""
         super(GraphRelativePositionalEncodingNetworkAdvanced, self).__init__()
@@ -95,11 +97,14 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         self.number_of_layers = number_of_layers
         self.number_of_heads = number_of_heads
         self.attention_biases = set(attention_biases)
-        self.path_encoding_code_dim = path_encoding_code_dim
+        self.path_encoding_code_dim = path_encoding_code_dim if path_encoding_code_dim is not None else number_of_heads
         self.encode_node_degree_centrality = encode_node_degree_centrality
         if self.encode_node_degree_centrality:
-            self.node_degree_centrality_encoder = EmbedPCQM4Mv2NodeFeatures(model_dim=model_dimension,
-                                                                            codebook_length=21, padding_idx=0)
+            self.node_degree_centrality_encoder = EmbedPCQM4Mv2NodeFeatures(
+                model_dim=model_dimension,
+                codebook_length=node_degree_upperbound + 3,
+                padding_idx=0)
+            self.node_degree_upperbound = node_degree_upperbound
 
         if not self.independent_layer_embeddings:
             self.attention_bias_edge = DiscreteConnectionTypeEmbeddingAttentionBias(
@@ -114,7 +119,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             ) if 'shortest_path_length' in self.attention_biases else None
             self.attention_bias_shortest_path = PathTrajectoryEncodingAttentionBias(
                 num_heads=number_of_heads,
-                code_dim=path_encoding_code_dim,
+                code_dim=self.path_encoding_code_dim,
                 maximum_supported_path_length=path_encoding_length_upperbound
             ) if 'shortest_path' in self.attention_biases else None
         else:
@@ -130,7 +135,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             ) if 'shortest_path_length' in self.attention_biases else None for i in range(self.number_of_layers)}
             self.attention_bias_shortest_path = {i: PathTrajectoryEncodingAttentionBias(
                 num_heads=number_of_heads,
-                code_dim=path_encoding_code_dim,
+                code_dim=self.path_encoding_code_dim,
                 maximum_supported_path_length=path_encoding_length_upperbound
             ) if 'shortest_path' in self.attention_biases else None for i in range(self.number_of_layers)}
 
@@ -151,9 +156,6 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             )
             node_features = node_features + perturbation
         return node_features
-
-
-    # def node_centrality_encoding(self, batched_graph):
 
     def forward(
             self,
@@ -179,6 +181,12 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         # - connection types (edge types tokenized + no edge, self edge, and task edge
         node2node_connection_types = batch['node2node_connection_type']
         shortest_path_length_types = batch['node2node_shortest_path_length_type']
+
+        if 'shortest_path_feature_trajectory' in batch:
+            shortest_path_feature_trajectory = batch['shortest_path_feature_trajectory']
+        else:
+            shortest_path_feature_trajectory = None
+
         device = node_type.device
 
         # - performing the representation step for nodes
@@ -186,7 +194,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
 
         # - node degree centrality
         if self.encode_node_degree_centrality:
-            node_features += self.node_degree_centrality_encoder(1+batch['node_degree_centrality'])
+            node_features += self.node_degree_centrality_encoder(1+batch['node_degree_centrality'].clip(max=self.node_degree_upperbound+1))
 
         # - perturbation, if requested
         node_features = self.perturb_node_representations(node_features=node_features)
@@ -207,6 +215,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                     node_features,
                     distance=shortest_path_length_types,
                     connection_reps=node2node_connection_types,
+                    shortest_path_feature_trajectory=shortest_path_feature_trajectory,
                     edge_bias_guide=self.attention_bias_edge[i],
                     shortest_path_length_bias_guide=self.attention_bias_shortest_path_length[i],
                     shortest_path_bias_guide=self.attention_bias_shortest_path[i],
@@ -217,6 +226,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                     node_features,
                     distance=shortest_path_length_types,
                     connection_reps=node2node_connection_types,
+                    shortest_path_feature_trajectory=shortest_path_feature_trajectory,
                     edge_bias_guide=self.attention_bias_edge,
                     shortest_path_length_bias_guide=self.attention_bias_shortest_path_length,
                     shortest_path_bias_guide=self.attention_bias_shortest_path,

@@ -6,6 +6,8 @@ import numpy
 from graphite.data.pcqm4mv2.pyg.transforms.base import BasePygGraphitePCQM4MTransform
 import pyximport
 from graphite.utilities.logging import get_logger
+from graphite.utilities.offset import add_feature_position_offset
+
 pyximport.install(setup_args={"include_dirs": numpy.get_include()})
 from graphite.contrib.graphormer.algos import gen_edge_input, floyd_warshall
 
@@ -15,7 +17,8 @@ logger = get_logger(__name__)
 class EncodeNode2NodeShortestPathFeatureTrajectory(BasePygGraphitePCQM4MTransform):
     def __init__(
             self,
-            max_length_considered: int = 256
+            max_length_considered: int,
+            feature_position_offset: int = None
     ):
         """constructor"""
         """
@@ -25,9 +28,7 @@ class EncodeNode2NodeShortestPathFeatureTrajectory(BasePygGraphitePCQM4MTransfor
         """
         super(EncodeNode2NodeShortestPathFeatureTrajectory, self).__init__()
         self.max_length_considered = max_length_considered
-        self.unreachable = max_length_considered + 1
-        self.task_distance = max_length_considered + 2
-        self.no_distance = max_length_considered + 3  # through collate
+        self.feature_position_offset = feature_position_offset
 
     def forward(self, g: Data) -> Data:
         """
@@ -44,9 +45,13 @@ class EncodeNode2NodeShortestPathFeatureTrajectory(BasePygGraphitePCQM4MTransfor
         """
         device = g.x.device
 
-        edge_features = torch.zeros((g.num_nodes, g.num_nodes, 3), dtype=torch.long)
+        edge_attr = g.edge_attr.clone()
+        if self.feature_position_offset is not None:
+            edge_attr = add_feature_position_offset(edge_attr, offset=self.feature_position_offset)
+
+        edge_features = torch.zeros((g.num_nodes, g.num_nodes, edge_attr.shape[1]), dtype=torch.long)
         e0, e1 = tuple([e.squeeze() for e in torch.split(g.edge_index,  1, 0)])
-        edge_features[e0, e1, :] = g.edge_attr
+        edge_features[e0, e1, :] = edge_attr
         if g.edge_index.shape[1] == 0:
             # logger.warning(f"ENCOUNTERED A GRAPH WITH {g.num_nodes} NODES AND NO EDGES.")
             adj = numpy.zeros((g.num_nodes, g.num_nodes)).astype('int64')
@@ -55,4 +60,5 @@ class EncodeNode2NodeShortestPathFeatureTrajectory(BasePygGraphitePCQM4MTransfor
         M, path = floyd_warshall(adj)
 
         g['shortest_path_feature_trajectory'] = torch.from_numpy(gen_edge_input(numpy.amax(M), path, edge_features.data.cpu().numpy().astype('int'))).to(device)
+        g['shortest_path_feature_trajectory'] = g['shortest_path_feature_trajectory'][:, :, :self.max_length_considered, :]
         return g

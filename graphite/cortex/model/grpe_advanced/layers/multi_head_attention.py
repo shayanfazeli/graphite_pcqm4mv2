@@ -45,6 +45,7 @@ class MultiHeadAttention(torch.nn.Module):
         shortest_path_bias_guide: torch.nn.Module,
         distance: torch.LongTensor,
         connection_reps: torch.Tensor,
+        shortest_path_feature_trajectory: torch.Tensor,
         mask: torch.Tensor = None,
     ) -> torch.Tensor:
         """
@@ -109,9 +110,8 @@ class MultiHeadAttention(torch.nn.Module):
         # - the encoded shortest path trajectory bias
         if shortest_path_bias_guide is not None:
             a = a + shortest_path_bias_guide(
-                queries=queries,
-                keys=keys,
-                edge_types=distance
+                shortest_path_feature_trajectory=shortest_path_feature_trajectory,
+                shortest_path_lengths=distance,
             )
 
         # - scaling, masking, and softmax
@@ -130,17 +130,26 @@ class MultiHeadAttention(torch.nn.Module):
         z = torch.matmul(a, values)
 
         # - adding the additional outputs for the biases, if any
-        for bias_guide in [
-            edge_bias_guide,
-            shortest_path_length_bias_guide,
-            shortest_path_bias_guide
-        ]:
-            if bias_guide is not None:
-                z = z + bias_guide.compute_supplementary_reps(
-                    attention_weights=a,
-                    edge_types=connection_reps,
-                    values=None
-                )
+        if edge_bias_guide is not None:
+            z = z + edge_bias_guide.compute_supplementary_reps(
+                attention_weights=a,
+                edge_types=connection_reps,
+                values=None
+            )
+
+        if shortest_path_length_bias_guide is not None:
+            z = z + shortest_path_length_bias_guide.compute_supplementary_reps(
+                attention_weights=a,
+                edge_types=distance,
+                values=None
+            )
+
+        if shortest_path_bias_guide is not None:
+            z = z + shortest_path_bias_guide.compute_supplementary_reps(
+                attention_weights=a,
+                edge_types=None,
+                values=None
+            )
 
         z = z.transpose(1, 2).contiguous()  # b, n, h, rep_dim
         z = z.view(batch_size, -1, self.num_heads * d_v) # b, n, model_dim

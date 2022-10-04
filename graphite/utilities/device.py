@@ -1,4 +1,6 @@
+from typing import List, Dict, Any
 import torch
+from torch_geometric.data import Data, Batch
 
 
 def get_device(device: int) -> torch.device:
@@ -14,3 +16,17 @@ def get_device(device: int) -> torch.device:
         return torch.device("cpu")
     else:
         return torch.device("cuda:" + str(device))
+
+
+def move_batch_to_device(batch, device):
+    for k in batch:
+        if isinstance(batch[k], torch.Tensor) or isinstance(batch[k], Batch) or isinstance(batch[k], Data):
+            batch[k] = batch[k].to(device)
+        elif isinstance(batch[k], List):
+            batch[k] = [move_batch_to_device(e, device) for e in batch[k]]
+        elif isinstance(batch[k], Dict):
+            batch[k] = {k2: move_batch_to_device(v, device) for k2, v in batch[k].items()}
+        else:
+            raise Exception(f"unsupported batch element")
+
+    return batch

@@ -40,6 +40,15 @@ class DiscreteConnectionTypeEmbeddingPlusConnectionRepresentationAttentionBias(
             torch.nn.Linear(self.model_dim // self.num_heads, self.model_dim // self.num_heads),
         )
 
+    def compute_supplementary_reps(
+            self,
+            attention_weights: torch.Tensor,
+            edge_types: torch.LongTensor,
+            values: torch.Tensor = None,
+    ) -> torch.Tensor:
+        pass
+    #todo: implement this
+
     def forward(
             self,
             queries: torch.Tensor,
