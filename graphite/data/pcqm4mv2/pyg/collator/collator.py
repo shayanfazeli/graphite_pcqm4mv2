@@ -90,6 +90,10 @@ def collate_fn(batch):
                 max_len=None  # infer
             )[0]
 
+    if 'node_degree_centrality' in batch[0]:
+        output['node_degree_centrality'] = pad_sequence([g['node_type'] for g in batch], pad_dim=0, pad_value=-1, stack_dim=0, max_len=max_node_count)[
+            0].long()
+
     for k in output:
         if isinstance(k, torch.Tensor):
             assert not torch.any(torch.isnan(output[k])).item()
