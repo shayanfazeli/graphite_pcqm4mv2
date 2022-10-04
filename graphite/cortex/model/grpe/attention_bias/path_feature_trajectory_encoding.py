@@ -27,19 +27,23 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
 
     def __init__(
             self,
-            num_head: int,
+            num_heads: int,
             maximum_supported_path_length: int = 10,
     ):
         super(PathTrajectoryEncodingAttentionBias, self).__init__()
 
         # - preparing the weights for these
-        self.num_head = num_head
-        self.edge_emb = torch.nn.Embedding(3, num_head, padding_idx=0)
-        self.codebook = torch.nn.Embedding(maximum_supported_path_length, num_head * num_head)
+        self.num_head = num_heads
+        self.edge_emb = torch.nn.Embedding(3, num_heads, padding_idx=0)
+        self.codebook = torch.nn.Embedding(maximum_supported_path_length, num_heads * num_heads)
         self.maximum_supported_path_length = maximum_supported_path_length
 
     def encode_path_edge_type(self, shortest_path_feature_trajectory: torch.Tensor) -> torch.Tensor:
         """
+        A simple mapping of the 3-dimensional edge feature in PCQM2Mv2 to a vector of dim `num_head` from the edge
+        feature vector of dim `3`. The idea is that they decide to have the $d_E$ (equation 7 of the Graphormer paper)
+        to be `num_heads`.
+
         Parameters
         ----------
         shortest_path_feature_trajectory: `torch.Tensor`, required
@@ -75,7 +79,6 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
         batch_size, max_num_nodes, _, max_distance_length, _ = shortest_path_feature_trajectory.size()
 
         # - with the addition of 1 (and given that 0 is considered padding), the paddings wont contribute
-
         # `dim=(batch_size, max_node_number, max_node_number, L, num_head)`
         shortest_path_feature_trajectory = self.encode_path_edge_type(
             shortest_path_feature_trajectory=1 + shortest_path_feature_trajectory)
@@ -84,6 +87,8 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
         shortest_path_feature_trajectory = shortest_path_feature_trajectory.permute(3, 0, 1, 2, 4).view(
             max_distance_length, -1, self.num_head)
 
+        # - now for each attention head, the idea is that for each edge number in the path, we
+        # have a different path
         # `dim=(batch_size, max_node_number, max_node_number, num_head)`
         path_reps = torch.bmm(
             shortest_path_feature_trajectory,
@@ -92,7 +97,8 @@ class PathTrajectoryEncodingAttentionBias(AttentionBiasBase):
             max_distance_length, batch_size, max_num_nodes, max_num_nodes, self.num_head
         ).permute(1, 2, 3, 0, 4).sum(-2)  # b, n, n, h
 
-        path_reps = path_reps / (1 + shortest_path_lengths).float().unsqueeze(-1)
+        # - normalizing the result by path length
+        path_reps = path_reps / shortest_path_lengths.clip(min=1).float().unsqueeze(-1)
         path_reps = path_reps.permute(0, 3, 1, 2).contiguous()  # b, h, n, n
 
         return path_reps
