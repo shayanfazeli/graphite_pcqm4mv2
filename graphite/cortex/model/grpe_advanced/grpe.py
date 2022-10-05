@@ -2,13 +2,11 @@ from typing import Dict, List, Any
 import copy
 import torch
 import torch.nn
-import torch.nn.functional as F
 from torch_geometric.data import Data, Batch
 from graphite.utilities.masking.utilities import get_mask_from_sequence_lengths
 from .attention_bias import DiscreteConnectionTypeEmbeddingAttentionBias
 from .attention_bias.path_feature_trajectory_encoding import PathTrajectoryEncodingAttentionBias
 from .layers.encoder import EncoderLayer
-from ..encoders.connection.pcqm4mv2 import EmbedPCQM4Mv2ShortestPathLengthType, EmbedPCQM4Mv2EdgeType
 from ..encoders.node.pcqm4mv2 import EmbedPCQM4Mv2NodeFeatures
 
 

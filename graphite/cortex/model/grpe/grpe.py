@@ -1,12 +1,9 @@
 from typing import Dict, List, Any
-import copy
 import torch
 import torch.nn
-import torch.nn.functional as F
 from torch_geometric.data import Data, Batch
 from .attention_bias import DiscreteConnectionTypeEmbeddingAttentionBias
 from .layers.encoder import EncoderLayer
-from ..encoders.connection.pcqm4mv2 import EmbedPCQM4Mv2ShortestPathLengthType, EmbedPCQM4Mv2EdgeType
 from ..encoders.node.pcqm4mv2 import EmbedPCQM4Mv2NodeFeatures
 
 
