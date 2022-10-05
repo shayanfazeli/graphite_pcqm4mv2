@@ -1,4 +1,6 @@
+import sys
 import argparse
+import pathlib
 
 
 def distributed_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -18,17 +20,20 @@ def distributed_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser
 def base_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("config", help="path to the config file")
     parser.add_argument("--seed", default=42, help="Random seed.", type=int)
-    parser.add_argument("--clean", action="store_true", help="Restart training and erase previous checkpoint contents.")
-    parser.add_argument("--name", type=str, required=True, help="experiment title")
-    parser.add_argument("--project", type=str, required=True, help="project title")
-    parser.add_argument("--id", type=str, required=False, default=None, help="the project id, only needed for resuming")
-    parser.add_argument("--wandb_offline", action="store_true", help="""
+
+    wandb_parser = parser.add_argument_group("Wandb args")
+    wandb_parser.add_argument("--wandb", action="store_true", help="Enable wandb")
+    wandb_parser.add_argument("--name", type=str, required="--wandb" in sys.argv, help="experiment title")
+    wandb_parser.add_argument("--project", type=str, required="--wandb" in sys.argv, help="project title")
+    wandb_parser.add_argument("--id", type=str, required=False, default=None, help="the project id, only needed for resuming")
+    wandb_parser.add_argument("--clean", action="store_true", help="Restart training and erase previous checkpoint contents.")
+    wandb_parser.add_argument("--wandb_offline", action="store_true", help="""
     If this parameter is set to true, the wandb logging will take place in an offline manner.
     If provided as true, the `wandb_apikey` has to be set as well.""")
-    parser.add_argument("--wandb_apikey", type=str, required=False, default=None, help="""
+    wandb_parser.add_argument("--wandb_apikey", type=str, required=False, default=None, help="""
         wandb api key""")
-    parser.add_argument("--gpu", required=False, default=None, help="The gpu device to use. this will be overriden in case of distributed `torchrun` script.", type=int)
 
+    parser.add_argument("--gpu", required=False, default=None, help="The gpu device to use. this will be overriden in case of distributed `torchrun` script.", type=int)
     parser.add_argument("--config_overrides", required=False, default=None, type=str, help="""
         For a variety of purposes, one might one to override the default values of a config file.
         An example would be to cover a range for a variable, etc.
@@ -57,3 +62,10 @@ def training_args(parser) -> argparse.ArgumentParser:
     """
 
     return parser
+
+def get_args():
+    parser = argparse.ArgumentParser(description="Graphite")
+    parser = base_args(parser)
+    parser = distributed_args(parser)
+    args = parser.parse_args()
+    return args, sys.argv

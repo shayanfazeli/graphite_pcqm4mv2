@@ -61,7 +61,7 @@ class Trainer(TrainerBase):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.its_wandb_process = (not self.args.distributed) or (self.args.local_rank == 0)
+        self.its_wandb_process = args.wandb and ((not self.args.distributed) or (self.args.local_rank == 0))
 
         # - distributed learning preparations if needed
         if self.args.distributed:

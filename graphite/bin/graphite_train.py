@@ -6,7 +6,7 @@ from graphite.utilities.config.manager.utilities import read_config
 from graphite.utilities.device import get_device
 from graphite.utilities.miscellaneous import count_parameters
 from graphite.utilities.randomization.seed import fix_random_seeds
-from graphite.utilities.argument_parsing.train import base_args, distributed_args
+from graphite.utilities.argument_parsing.train import get_args
 from graphite.utilities.distributed.utilities import setup_distributed_training_if_requested
 import graphite.data.handler as data_handler_lib
 import graphite.cortex.optimization.optimizer as optimizer_lib
@@ -85,8 +85,5 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser = base_args(parser)
-    parser = distributed_args(parser)
-    args = parser.parse_args()
+    args, argv = get_args()
     main(args=args)
