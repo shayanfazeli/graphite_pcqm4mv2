@@ -23,7 +23,7 @@ __attention_biases = [
                     'shortest_path_length',
                     # 'shortest_path'
                 ]
-# __path_encoding_code_dim = 16
+__path_encoding_code_dim = 16
 __encode_node_degree_centrality = True
 
 data = dict(

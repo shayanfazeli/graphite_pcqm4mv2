@@ -47,6 +47,9 @@ scheduler = dict(
 )
 ```
 
+* Results
+  * Loss quickly became `NaN`
+
 ## `exp3`
 * base: `exp1`
 * Main Hyerparameters:
