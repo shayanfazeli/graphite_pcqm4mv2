@@ -97,16 +97,16 @@ class GraphRelativePositionalEncodingNetwork(torch.nn.Module):
                 num_connection_types=self.shortest_path_length_upperbound+5,
             )
         else:
-            self.attention_bias_edge = {i: DiscreteConnectionTypeEmbeddingAttentionBias(
+            self.attention_bias_edge = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=31,
-            ) for i in range(self.number_of_layers)}
-            self.attention_bias_shortest_path = {i: DiscreteConnectionTypeEmbeddingAttentionBias(
+            ) for i in range(self.number_of_layers)})
+            self.attention_bias_shortest_path = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=self.shortest_path_length_upperbound+5,
-            ) for i in range(self.number_of_layers)}
+            ) for i in range(self.number_of_layers)})
 
         self.layered_stem = torch.nn.ModuleList([
             EncoderLayer(
