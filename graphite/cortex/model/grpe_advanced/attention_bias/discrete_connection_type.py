@@ -149,8 +149,8 @@ class DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(torch.nn.M
 
         # - placeholder
         supplementary_value = torch.zeros(
-            (batch_size, num_heads, num_nodes, self.num_connection_types)
-        ).to(attention_weights.device).float()
+            (batch_size, num_heads, num_nodes, self.num_connection_types), device=attention_weights.device
+        )
 
         # - note that edge_types is of `dim=batch_size, num_nodes, num_nodes`, therefore,
         # upon repeating we will have `dim=batch_size, num_heads, num_nodes, num_nodes` with each

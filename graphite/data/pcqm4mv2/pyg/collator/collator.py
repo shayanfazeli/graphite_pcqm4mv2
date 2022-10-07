@@ -19,7 +19,8 @@ def collate_fn(batch):
     """collation"""
     no_edge_val = 8
     graphs = default_collate_fn(batch)
-    max_node_count = max([graphs[i].num_nodes for i in range(len(batch))])
+    node_counts = torch.LongTensor([graphs[i].num_nodes for i in range(len(batch))])
+    max_node_count = node_counts.max().item()
 
     node_type = pad_sequence([g['node_type'] for g in batch], pad_dim=0, pad_value=0, stack_dim=0, max_len=max_node_count)[0].long()
     node_features = pad_sequence([g.x for g in batch], pad_dim=0, pad_value=0, stack_dim=0, max_len=max_node_count)[
@@ -32,6 +33,7 @@ def collate_fn(batch):
         node_features=node_features,
         edge_type=edge_type,
         graphs=graphs,
+        node_counts=node_counts
     )
 
     if 'y' in graphs:

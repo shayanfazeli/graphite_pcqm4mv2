@@ -191,7 +191,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             The graph embeddings of `dim=(batch_size, model_dim)`.
         """
         # - getting the batched graphs
-        batched_graph = batch['graphs']
+        # batched_graph = batch['graphs']
 
         # - getting the encoded node types (with the offset applied)
         node_type = batch['node_type']
@@ -218,9 +218,8 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         node_features = self.perturb_node_representations(node_features=node_features)
 
         # - getting the node counts (including the task node)
-        graph_node_counts = [batched_graph[i].num_nodes for i in range(len(batched_graph))]
-        graph_node_counts = torch.tensor(graph_node_counts).to(device)
-        max_node_count = max(graph_node_counts)
+        graph_node_counts = batch['node_counts']
+        max_node_count = graph_node_counts.max().item()
         mask = get_mask_from_sequence_lengths(
             graph_node_counts,
             max_length=max_node_count
