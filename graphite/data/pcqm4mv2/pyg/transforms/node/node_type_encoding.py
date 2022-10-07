@@ -3,6 +3,7 @@ from torch_geometric.data import Data
 import torch
 import torch.nn
 from graphite.data.pcqm4mv2.pyg.transforms.base import BasePygGraphitePCQM4MTransform
+from graphite.utilities.offset import add_feature_position_offset
 
 
 class EncodeNodeType(BasePygGraphitePCQM4MTransform):
@@ -28,21 +29,6 @@ class EncodeNodeType(BasePygGraphitePCQM4MTransform):
         self.num_node_types = self.offset * len(vocabulary_lengths) # 332
         self.task_node_type = self.num_node_types + 1  # 333
 
-    def convert_to_id(self, node_features: torch.Tensor) -> torch.LongTensor:
-        """
-        Parameters
-        ----------
-
-        Returns
-        ----------
-        """
-        offset = self.offset
-        feature_offset = 1 + torch.arange(
-            0, len(self.vocabulary_lengths) * offset, offset, dtype=torch.long
-        )
-        node_features = node_features + feature_offset
-        return node_features.long()
-
     def forward(self, g: Data) -> Data:
         """
         The transform forward
@@ -56,5 +42,6 @@ class EncodeNodeType(BasePygGraphitePCQM4MTransform):
         ----------
         `Data`: the `node_type` tensor is added to the graph and it is returned.
         """
-        g['node_type'] = self.convert_to_id(g.x)
+        # g['node_type'] = self.convert_to_id(g.x)
+        g['node_type'] = add_feature_position_offset(g.x, offset=self.offset)
         return g

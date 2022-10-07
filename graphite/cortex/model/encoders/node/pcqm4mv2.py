@@ -8,4 +8,4 @@ class EmbedPCQM4Mv2NodeFeatures(torch.nn.Module):
         self.codebook = torch.nn.Embedding(codebook_length, model_dim, padding_idx=padding_idx)
 
     def forward(self, node_features: torch.Tensor) -> torch.Tensor:
-        return self.codebook.weight[node_features.long()].float().sum(dim=-2)
+        return self.codebook.weight[node_features].sum(dim=-2)

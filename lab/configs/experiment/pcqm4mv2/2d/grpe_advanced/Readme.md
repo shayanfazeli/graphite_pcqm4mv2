@@ -1,56 +1,80 @@
-# GRPE Advanced
 
-The customized version of GRPE with additional options
 
-## Single process
-```bash
-export PYTHONPATH="$PYTHONPATH:/home/shayan/phoenix/graphite";
-python3 ./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/base.py \
---seed=1819 \
---name="exp1" \
---project="customized_grpe" \
---gpu=0 \
---logdir="/home/shayan/warehouse/graphite/pcqm4mv2/2d/grpe_advanced" \
-#--wandb_offline \
-#--wandb_apikey='YOURKEY' \
---clean
-```
 
-## Distributed
+__Project__: `graphite_grpe_advanced`
 
-```bash
-#!/bin/bash
-export CUBLAS_WORKSPACE_CONFIG=:16:8;
-export PYTHONPATH="$PYTHONPATH:/home/shayan/phoenix/graphite";
-torchrun \
---standalone \
---nnodes=1 \
---nproc_per_node=4 \
-./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/base.py \
---seed=1819 \
---name="exp1" \
---project="customized_grpe" \
---gpu=0 \
---logdir="/home/shayan/warehouse/graphite/pcqm4mv2/2d/grpe_advanced" \
---clean
+## `exp1`
+* Model: *GRPE Large + Node degree centrality + Path encoding*
+* Main Hyperparameters:
+```python
+__batch_size = 128
+__warmup_epochs = 1
+__max_epochs = 20
+__shortest_path_length_type_upperbound = 20  # for the shortest-path-type (discrete) to be embedded
+__shortest_path_length_upperbound = 20  # for graphormer-like path embedding
+
+__attention_biases = [
+                    'edge',
+                    'shortest_path_length',
+                    'shortest_path'
+                ]
+__path_encoding_code_dim = 16
+__encode_node_degree_centrality = True
 ```
 
 
-## Exp: twice path length
+## `exp2`
 
-```bash
-#!/bin/bash
-export CUBLAS_WORKSPACE_CONFIG=:16:8;
-export PYTHONPATH="$PYTHONPATH:/home/shayan/phoenix/graphite";
-torchrun \
---standalone \
---nnodes=1 \
---nproc_per_node=4 \
-./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/longer_path.py \
---seed=1819 \
---name="exp2" \
---project="customized_grpe" \
---gpu=0 \
---logdir="/home/shayan/warehouse/graphite/pcqm4mv2/2d/grpe_advanced" \
---clean
+* Main Hyerparameters:
+  * base: `exp1`
+  * different optimization and scheduling
+
+```python
+optimizer = dict(
+    type='AdamW',
+    args=dict(
+        lr=1e-2,
+        weight_decay=0
+    ),
+)
+
+scheduler = dict(
+    type='CosineAnnealingLR',
+    args=dict(
+        T_max=__max_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes)
+    ),
+    interval='step'
+)
+```
+
+## `exp3`
+* base: `exp1`
+* Main Hyerparameters:
+  * shorter paths covered and lower path encoding dim
+```python
+__batch_size = 128
+__warmup_epochs = 1
+__max_epochs = 20
+__shortest_path_length_type_upperbound = 5  # for the shortest-path-type (discrete) to be embedded
+__shortest_path_length_upperbound = 5  # for graphormer-like path embedding
+
+__attention_biases = [
+                    'edge',
+                    'shortest_path_length',
+                    'shortest_path'
+                ]
+__path_encoding_code_dim = 4
+__encode_node_degree_centrality = True
+```
+
+## `exp4`
+* base: `exp1`
+* Main Hyerparameters:
+  * no path encoding
+```python
+__attention_biases = [
+                    'edge',
+                    'shortest_path_length',
+                    # 'shortest_path'
+                ]
 ```

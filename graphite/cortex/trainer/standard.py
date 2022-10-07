@@ -144,6 +144,8 @@ class Trainer(TrainerBase):
         log_message(logger, f"""
         ~> training (split: {mode}) - [epoch: {epoch_index}]
         """, self.args)
+
+        self.model.train()
         dataloader_tqdm = tqdm(enumerate(dataloader), total=len(dataloader))
         for batch_index, batch_data in dataloader_tqdm:
             if self.limit_batch_count is not None:
@@ -217,6 +219,7 @@ class Trainer(TrainerBase):
 
     def train_step(self, mode: str, batch_index: int, batch_data):
         # - latent representations
+        self.model.train()
         outputs = self.model(batch_data)
         loss = self.compute_loss(outputs, batch_data)
         outputs.update(dict(loss=loss, y=batch_data['y']))
@@ -238,6 +241,7 @@ class Trainer(TrainerBase):
         log_message(logger, f"""
         ~> validation (split: {mode}) - [epoch: {epoch_index}]
         """, self.args)
+        self.model.eval()
         dataloader_tqdm = tqdm(enumerate(dataloader))
         for batch_index, batch_data in dataloader_tqdm:
             if self.limit_batch_count is not None:
@@ -248,6 +252,7 @@ class Trainer(TrainerBase):
 
     @torch.no_grad()
     def validate_step(self, mode: str, batch_index: int, batch_data):
+        self.model.eval()
         outputs = self.model(batch_data)
         loss = self.compute_loss(outputs, batch_data)
         outputs.update(dict(loss=loss, y=batch_data['y']))

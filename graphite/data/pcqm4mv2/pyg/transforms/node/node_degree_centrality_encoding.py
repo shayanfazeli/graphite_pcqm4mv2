@@ -18,22 +18,6 @@ class EncodeNodeDegreeCentrality(BasePygGraphitePCQM4MTransform):
         super(EncodeNodeDegreeCentrality, self).__init__()
         self.max_degree = max_degree
 
-
-    def convert_to_id(self, node_features: torch.Tensor) -> torch.LongTensor:
-        """
-        Parameters
-        ----------
-
-        Returns
-        ----------
-        """
-        offset = self.offset
-        feature_offset = 1 + torch.arange(
-            0, len(self.vocabulary_lengths) * offset, offset, dtype=torch.long
-        )
-        node_features = node_features + feature_offset
-        return node_features.long()
-
     def forward(self, g: Data) -> Data:
         """
         The transform forward
