@@ -88,7 +88,6 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         super(GraphRelativePositionalEncodingNetworkAdvanced, self).__init__()
         self.node_encoder = EmbedPCQM4Mv2NodeFeatures(model_dim=model_dimension)
         self.perturbation = perturbation
-        assert perturbation == 0
         self.shortest_path_length_upperbound = shortest_path_length_upperbound
         self.model_dim = model_dimension
         self.independent_layer_embeddings = independent_layer_embeddings
@@ -132,31 +131,31 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                 maximum_supported_path_length=path_encoding_length_upperbound
             )) if 'shortest_path' in self.attention_biases else None
         else:
-            self.attention_bias_edge = {i: DiscreteConnectionTypeEmbeddingAttentionBias(
+            self.attention_bias_edge = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=31,
-            ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)}
-            self.attention_bias_edge_complementary_values = {i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
+            ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)})
+            self.attention_bias_edge_complementary_values = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=31,
-            ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)}
-            self.attention_bias_shortest_path_length_complementary_values = {i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
+            ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)})
+            self.attention_bias_shortest_path_length_complementary_values = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=self.shortest_path_length_upperbound + 5,
-            ) if 'shortest_path_length' in self.attention_biases else None for i in range(self.number_of_layers)}
-            self.attention_bias_shortest_path_length = {i: DiscreteConnectionTypeEmbeddingAttentionBias(
+            ) if 'shortest_path_length' in self.attention_biases else None for i in range(self.number_of_layers)})
+            self.attention_bias_shortest_path_length = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=self.shortest_path_length_upperbound+5,
-            ) if 'shortest_path_length' in self.attention_biases else None for i in range(self.number_of_layers)}
-            self.attention_bias_shortest_path = {i: PathTrajectoryEncodingAttentionBias(
+            ) if 'shortest_path_length' in self.attention_biases else None for i in range(self.number_of_layers)})
+            self.attention_bias_shortest_path = torch.nn.ModuleDict({i: PathTrajectoryEncodingAttentionBias(
                 num_heads=number_of_heads,
                 code_dim=self.path_encoding_code_dim,
                 maximum_supported_path_length=path_encoding_length_upperbound
-            ) if 'shortest_path' in self.attention_biases else None for i in range(self.number_of_layers)}
+            ) if 'shortest_path' in self.attention_biases else None for i in range(self.number_of_layers)})
 
         self.layered_stem = torch.nn.ModuleList([
             EncoderLayer(
