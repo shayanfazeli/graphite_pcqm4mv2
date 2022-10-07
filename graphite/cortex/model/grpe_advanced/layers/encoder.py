@@ -53,8 +53,10 @@ class EncoderLayer(torch.nn.Module):
         edge_bias_guide: torch.nn.Module,
         shortest_path_length_bias_guide: torch.nn.Module,
         shortest_path_bias_guide: torch.nn.Module,
-        shortest_path_feature_trajectory: torch.Tensor = None,
-        mask: torch.Tensor = None,
+        shortest_path_feature_trajectory: torch.Tensor,
+        edge_bias_guide_complementary_values: torch.nn.Module,
+        shortest_path_length_bias_guide_complementary_values: torch.nn.Module,
+        mask: torch.Tensor,
     ) -> torch.Tensor:
         """
         Parameters
@@ -65,14 +67,27 @@ class EncoderLayer(torch.nn.Module):
         edge_bias_guide: `torch.nn.Module`, required
             The bias guide for including *edge type representations*.
 
-        path_length_bias_guide: `torch.nn.Module`, required
+        shortest_path_length_bias_guide: `torch.nn.Module`, required
             The bias guide for including *shortest path length type representations*.
+
+        edge_bias_guide_complementary_values: `torch.nn.Module`, required
+            The module for computing the complementary outputs for the corresponding attention modifier
+
+        shortest_path_length_bias_guide_complementary_values: `torch.nn.Module`, required
+            The module for computing the complementary outputs for the corresponding attention modifier
 
         distance: `torch.LongTensor`, required
             The shortest path distance types (meaning that the task distance and padding is included too).
 
         connection_reps: `torch.Tensor`, required
             The edge types between nodes of `dim=(batch_size, max_node_count, max_node_count)`
+
+        shortest_path_bias_guide: `torch.nn.Module`, required
+            The bias of graphormer for shortest path encodings
+
+        shortest_path_feature_trajectory: `torch.Tensor`, required
+            The shortest path feature trajectory composed of offsetted edge features (discrete)
+            of `dim=(batch_size, num_nodes, num_nodes, path_length, 3)`
 
         mask: `torch.Tensor`, optional(default=None)
             The sequence mask `dim=(batch_size, max_node_count)`.
@@ -92,6 +107,8 @@ class EncoderLayer(torch.nn.Module):
             connection_reps=connection_reps,
             shortest_path_feature_trajectory=shortest_path_feature_trajectory,
             mask=mask,
+            edge_bias_guide_complementary_values=edge_bias_guide_complementary_values,
+            shortest_path_length_bias_guide_complementary_values=shortest_path_length_bias_guide_complementary_values
         )
         reps = self.self_attention_dropout(reps)
         node_reps = node_reps + reps

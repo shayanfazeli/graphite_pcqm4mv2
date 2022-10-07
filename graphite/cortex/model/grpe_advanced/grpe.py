@@ -1,10 +1,11 @@
 from typing import Dict, List, Any
 import copy
+import numpy
 import torch
 import torch.nn
 from torch_geometric.data import Data, Batch
 from graphite.utilities.masking.utilities import get_mask_from_sequence_lengths
-from .attention_bias import DiscreteConnectionTypeEmbeddingAttentionBias
+from .attention_bias import DiscreteConnectionTypeEmbeddingAttentionBias, DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues
 from .attention_bias.path_feature_trajectory_encoding import PathTrajectoryEncodingAttentionBias
 from .layers.encoder import EncoderLayer
 from ..encoders.node.pcqm4mv2 import EmbedPCQM4Mv2NodeFeatures
@@ -115,17 +116,37 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                 num_heads=number_of_heads,
                 num_connection_types=self.shortest_path_length_upperbound+5,
             ) if 'shortest_path_length' in self.attention_biases else None
-            self.attention_bias_shortest_path = PathTrajectoryEncodingAttentionBias(
+            self.attention_bias_edge_complementary_values = DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
+                model_dim=model_dimension,
+                num_heads=number_of_heads,
+                num_connection_types=31,
+            ) if 'edge' in self.attention_biases else None
+            self.attention_bias_shortest_path_length_complementary_values = DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
+                model_dim=model_dimension,
+                num_heads=number_of_heads,
+                num_connection_types=self.shortest_path_length_upperbound + 5,
+            ) if 'shortest_path_length' in self.attention_biases else None
+            self.attention_bias_shortest_path = torch.jit.script(PathTrajectoryEncodingAttentionBias(
                 num_heads=number_of_heads,
                 code_dim=self.path_encoding_code_dim,
                 maximum_supported_path_length=path_encoding_length_upperbound
-            ) if 'shortest_path' in self.attention_biases else None
+            )) if 'shortest_path' in self.attention_biases else None
         else:
             self.attention_bias_edge = {i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
                 num_connection_types=31,
             ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)}
+            self.attention_bias_edge_complementary_values = {i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
+                model_dim=model_dimension,
+                num_heads=number_of_heads,
+                num_connection_types=31,
+            ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)}
+            self.attention_bias_shortest_path_length_complementary_values = {i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
+                model_dim=model_dimension,
+                num_heads=number_of_heads,
+                num_connection_types=self.shortest_path_length_upperbound + 5,
+            ) if 'shortest_path_length' in self.attention_biases else None for i in range(self.number_of_layers)}
             self.attention_bias_shortest_path_length = {i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
@@ -217,6 +238,8 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                     edge_bias_guide=self.attention_bias_edge[i],
                     shortest_path_length_bias_guide=self.attention_bias_shortest_path_length[i],
                     shortest_path_bias_guide=self.attention_bias_shortest_path[i],
+                    edge_bias_guide_complementary_values=self.attention_bias_edge_complementary_values[i],
+                    shortest_path_length_bias_guide_complementary_values=self.attention_bias_shortest_path_length_complementary_values[i],
                     mask=mask,
                 )
             else:
@@ -228,6 +251,8 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                     edge_bias_guide=self.attention_bias_edge,
                     shortest_path_length_bias_guide=self.attention_bias_shortest_path_length,
                     shortest_path_bias_guide=self.attention_bias_shortest_path,
+                    edge_bias_guide_complementary_values=self.attention_bias_edge_complementary_values,
+                    shortest_path_length_bias_guide_complementary_values=self.attention_bias_shortest_path_length_complementary_values,
                     mask=mask,
                 )
 
