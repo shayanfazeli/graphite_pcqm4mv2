@@ -14,8 +14,10 @@ from torch_geometric.data import InMemoryDataset
 from torch_geometric.data import Data
 from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
 from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
+from graphite.utilities.logging import get_logger
 
 
+logger = get_logger(__name__)
 class PCQM4Mv2Dataset(InMemoryDataset):
     def __init__(
         self,
@@ -97,6 +99,7 @@ class PCQM4Mv2Dataset(InMemoryDataset):
         smiles_list = data_df["smiles"]
         homolumogap_list = data_df["homolumogap"]
 
+        print("there is pre-transform!")
         print("Converting SMILES strings into graphs...")
         data_list = []
         for i in tqdm(range(len(smiles_list))):
@@ -132,7 +135,8 @@ class PCQM4Mv2Dataset(InMemoryDataset):
         )
 
         if self.pre_transform is not None:
-            data_list = [self.pre_transform(data) for data in data_list]
+            print("applying pre-processing transform...")
+            data_list = [self.pre_transform(data) for data in tqdm(data_list)]
 
         data, slices = self.collate(data_list)
 
