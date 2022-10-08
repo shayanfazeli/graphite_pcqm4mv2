@@ -21,6 +21,8 @@ __attention_biases = [
 __path_encoding_code_dim = 16
 __encode_node_degree_centrality = True
 ```
+* Result
+  * Weird loss behavior due to bad lr
 
 
 ## `exp2`
@@ -84,6 +86,8 @@ __attention_biases = [
                     # 'shortest_path'
                 ]
 ```
+* Result
+  * `NaN` loss encountered (the 1e-3 learning rate seems to break every experiment and not a good choice)
 
 
 ## `exp5`
