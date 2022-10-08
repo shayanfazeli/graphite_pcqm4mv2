@@ -1,4 +1,4 @@
-from graphite.cortex.model.grpe.attention_bias.base import AttentionBiasBase
+from graphite.cortex.model.model.grpe.attention_bias.base import AttentionBiasBase
 import torch
 import torch.nn
 

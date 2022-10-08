@@ -22,7 +22,8 @@ __path_encoding_code_dim = 16
 __encode_node_degree_centrality = True
 ```
 * Result
-  * Weird loss behavior due to bad lr
+  * `NaN` loss encountered, rerunning with different seed
+
 
 
 ## `exp2`
@@ -72,8 +73,10 @@ __path_encoding_code_dim = 4
 __encode_node_degree_centrality = True
 ```
 
+
 * Observations
   * The training MAE seems to be increasing
+  * NaN loss
 
 ## `exp4`
 * base: `exp1`
