@@ -1,1 +1,1 @@
-from .supervised import Regressor
+from .supervised import Regressor, RegressorWithKPGTRegularization

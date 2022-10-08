@@ -1,1 +1,1 @@
-from .regression import Regressor
+from .regression import Regressor, RegressorWithKPGTRegularization

@@ -34,7 +34,7 @@ class Regressor(torch.nn.Module):
         self.projector = torch.nn.Sequential(*self.projector)
 
     def forward(self, batch_data):
-        y=batch_data['y']
+        y = batch_data['y']
         latent_reps = self.model(batch_data)
         preds = self.projector(latent_reps).squeeze()
         loss = self.criterion(preds, y)
