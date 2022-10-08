@@ -10,9 +10,9 @@ import numpy as np
 from scipy.optimize import brentq
 from scipy import special as sp
 
-from scipy.special import binom
-import torch_geometric
-from torch_geometric.nn.models.schnet import GaussianSmearing
+# from scipy.special import binom
+# import torch_geometric
+# from torch_geometric.nn.models.schnet import GaussianSmearing
 
 
 def Jn(r, n):
