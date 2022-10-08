@@ -2,7 +2,6 @@ from typing import Dict, Any
 import json
 import hashlib
 
-
 def dict_hash(dictionary: Dict[str, Any]) -> str:
     """
     MD5 hash of a dictionary.

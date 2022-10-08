@@ -1,3 +1,4 @@
+import sys
 from typing import Dict, List, Any
 import copy
 import wandb
@@ -178,17 +179,30 @@ class Trainer(TrainerBase):
             if p.requires_grad:
                 p.grad = None
 
+    def check_loss(self, loss: torch.Tensor):
+        if loss > 100000:
+            logger.error("loss is diverging: terminating the experiment, please check the logs.")
+            wandb.finish()
+            sys.exit(0)
+
+        if torch.isnan(loss).item():
+            logger.error("NaN loss encountered: terminating the experiment, please check the logs.")
+            wandb.finish()
+            sys.exit(0)
+
     def train_step_and_handle_mixed_precision(self, mode: str, batch_index: int, batch_data):
         self.zero_grad()
         if self.mixed_precision:
             if self.mixed_precision_backend == 'amp':
                 with torch.cuda.amp.autocast():
                     loss = self.train_step(mode=mode, batch_index=batch_index, batch_data=batch_data)
+                    self.check_loss(loss)
                 self.grad_scaler.scale(loss).backward()
                 self.grad_scaler.step(self.optimizer)
                 self.grad_scaler.update()
             elif self.mixed_precision_backend == 'apex':
                 loss = self.train_step(mode=mode, batch_index=batch_index, batch_data=batch_data)
+                self.check_loss(loss)
                 with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
                     scaled_loss.backward()
                 self.optimizer.step()
@@ -196,6 +210,7 @@ class Trainer(TrainerBase):
                 raise ValueError()
         else:
             loss = self.train_step(mode=mode, batch_index=batch_index, batch_data=batch_data)
+            self.check_loss(loss)
             loss.backward()
             self.optimizer.step()
 

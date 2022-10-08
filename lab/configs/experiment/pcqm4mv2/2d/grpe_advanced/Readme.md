@@ -70,6 +70,9 @@ __path_encoding_code_dim = 4
 __encode_node_degree_centrality = True
 ```
 
+* Observations
+  * The training MAE seems to be increasing
+
 ## `exp4`
 * base: `exp1`
 * Main Hyerparameters:
@@ -80,4 +83,33 @@ __attention_biases = [
                     'shortest_path_length',
                     # 'shortest_path'
                 ]
+```
+
+
+## `exp5`
+* base: `exp1`
+* Main Hyerparameters:
+  * longer  training sequence  (400 epochs)
+  * Optimization: identical to the original GRPE
+  * The main goal is to run the original GRPE with higher effective batch-size and with the graphormer capabilities
+```python
+optimizer = dict(
+    type='AdamW',
+    args=dict(
+        lr=2e-4,
+        weight_decay=0
+    ),
+)
+
+scheduler = dict(
+    type='PolynomialDecayLR',
+    args=dict(
+        warmup_updates=__warmup_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
+        tot_updates=__max_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
+        lr=2e-4,
+        end_lr=1e-9,
+        power=1.0
+    ),
+    interval='step'
+)
 ```
