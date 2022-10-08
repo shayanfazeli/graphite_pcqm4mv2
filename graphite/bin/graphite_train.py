@@ -11,7 +11,6 @@ from graphite.utilities.distributed.utilities import setup_distributed_training_
 import graphite.data.handler as data_handler_lib
 import graphite.cortex.optimization.optimizer as optimizer_lib
 import graphite.cortex.optimization.scheduler as scheduler_lib
-import graphite.cortex.optimization.loss as loss_lib
 import graphite.cortex.model as model_lib
 import graphite.cortex.trainer as trainer_lib
 from graphite.utilities.wandb.utilities import initialize_wandb
@@ -55,12 +54,10 @@ def main(args: argparse.Namespace) -> None:
             args=dict()
         )
 
-    criterion = getattr(loss_lib, config['loss']['type'])(**config['loss']['args'])
     optimizer = getattr(optimizer_lib, config['optimizer']['type'])(model.parameters(), **config['optimizer']['args'])
     scheduler = getattr(scheduler_lib, config['scheduler']['type'])(optimizer, **config['scheduler']['args'])
     log_message(
         logger, f"""
-            criterion: {type(criterion)}
             optimizer: {type(optimizer)}
             scheduler: {type(scheduler)}
         """,
@@ -72,7 +69,6 @@ def main(args: argparse.Namespace) -> None:
         config=config,
         model=model,
         data_handler=data_handler,
-        criterion=criterion,
         optimizer=optimizer,
         scheduler=scheduler,
         scheduling_interval=config['scheduler'].get('interval', 'step'),
