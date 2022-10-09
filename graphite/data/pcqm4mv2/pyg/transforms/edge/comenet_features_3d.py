@@ -6,23 +6,30 @@ import torch.nn
 from torch_scatter import scatter, scatter_min
 from graphite.contrib.comenet.positions import *
 from graphite.data.pcqm4mv2.pyg.transforms.base import BasePygGraphitePCQM4MTransform
+from graphite.utilities.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
     """
     The 3D edge features of ComENet `https://arxiv.org/pdf/2206.08515.pdf`.
+
+    # todo: modify for customizeable application on different edge indices (possibly multiple)
     """
     def __init__(
             self,
             cutoff=8.0,
             num_radial=3,
-            num_spherical=2
+            num_spherical=2,
+            edge_index_key: str = 'edge_index'
     ):
         """constructor"""
         super(ComenetEdgeFeatures, self).__init__()
         self.cutoff = cutoff
         self.feature1 = torsion_emb(num_radial=num_radial, num_spherical=num_spherical, cutoff=cutoff)
         self.feature2 = angle_emb(num_radial=num_radial, num_spherical=num_spherical, cutoff=cutoff)
+        self.edge_index_key = edge_index_key
 
     def forward(self, g: Data) -> Data:
         """
@@ -36,8 +43,14 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         """
         # - required material
         pos = g.positions_3d
-        j, i = tuple([e.squeeze() for e in torch.split(g.edge_index, 1, 0)])
+        j, i = tuple([e.squeeze() for e in torch.split(g[self.edge_index_key], 1, 0)])
         num_nodes = g.num_nodes
+
+        if i.size(0) == 0:
+            g['comenet_features1'] = torch.zeros((0, 12))
+            g['comenet_features2'] = torch.zeros((0, 6))
+            logger.warning(f"comenet features: no edge was there in the atom with {pos.shape[0]} nodes. setting placeholder.")
+            return g
 
         vecs = pos[j] - pos[i]
         dist = vecs.norm(dim=-1)
@@ -45,7 +58,11 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         # Calculate distances.
         _, argmin0 = scatter_min(dist, i, dim_size=num_nodes)
         argmin0[argmin0 >= len(i)] = 0
-        n0 = j[argmin0]
+        try:
+            n0 = j[argmin0]
+        except:
+            import pdb
+            pdb.set_trace()
         add = torch.zeros_like(dist).to(dist.device)
         add[argmin0] = self.cutoff
         dist1 = dist + add
