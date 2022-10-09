@@ -1,3 +1,5 @@
-from .grpe import GraphRelativePositionalEncodingNetwork
-from .wrappers import Regressor
-from .grpe_advanced import GraphRelativePositionalEncodingNetworkAdvanced
+# - models
+from .model import GraphRelativePositionalEncodingNetwork, GraphRelativePositionalEncodingNetworkAdvanced
+
+# - methods
+from .method import Regressor, RegressorWithKPGTRegularization

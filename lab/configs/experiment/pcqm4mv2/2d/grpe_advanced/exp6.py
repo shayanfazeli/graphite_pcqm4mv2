@@ -1,9 +1,9 @@
 """
-Exp1
+Exp6
 """
 
 _base_ = [
-    '../../../../dataset/pcqm4mv2/dataset_2d_for_transformers_base.py',
+    '../../../../dataset/pcqm4mv2/dataset_2d_for_transformers_kpgt.py',
     '../../../../model/grpe_advanced/grpe_large.py',
 ]
 
@@ -12,18 +12,18 @@ __number_of_processes = 4  # this is not directly used, the caller has to make s
 __number_of_training_items = 3378606
 
 # - critical hyperparameters
-__batch_size = 128
-__warmup_epochs = 1
-__max_epochs = 20
-__shortest_path_length_type_upperbound = 20  # for the shortest-path-type (discrete) to be embedded
-__shortest_path_length_upperbound = 20  # for graphormer-like path embedding
+__batch_size = 256
+__warmup_epochs = 3
+__max_epochs = 400
+__shortest_path_length_type_upperbound = 5  # for the shortest-path-type (discrete) to be embedded
+__shortest_path_length_upperbound = 5  # for graphormer-like path embedding
 
 __attention_biases = [
                     'edge',
                     'shortest_path_length',
                     'shortest_path'
                 ]
-__path_encoding_code_dim = 16
+__path_encoding_code_dim = 4
 __encode_node_degree_centrality = True
 
 data = dict(
@@ -48,6 +48,7 @@ data = dict(
 )
 
 model = dict(
+    type="RegressorWithKPGTRegularization",
     args=dict(
         model_config=dict(
             args=dict(
@@ -61,6 +62,18 @@ model = dict(
         loss_config=dict(
             type='L1Loss',
             args=dict()
+        ),
+        kpgt_loss_config=dict(
+            fingerprint=dict(
+                factor=5e-2,
+                type='BCEWithLogitsLoss',
+                args=dict()
+            ),
+            descriptor=dict(
+                factor=1e-1,
+                type='L1Loss',
+                args=dict()
+            )
         )
     )
 )
@@ -68,7 +81,7 @@ model = dict(
 optimizer = dict(
     type='AdamW',
     args=dict(
-        lr=1e-3,
+        lr=2e-4,
         weight_decay=0
     ),
 )
@@ -78,7 +91,7 @@ scheduler = dict(
     args=dict(
         warmup_updates=__warmup_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
         tot_updates=__max_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
-        lr=1e-3,
+        lr=2e-4,
         end_lr=1e-9,
         power=1.0
     ),
@@ -94,6 +107,24 @@ metrics = dict(
             arg_mapping=dict(value='loss')
         ),
         dict(
+            name='loss_kpgt_fp_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss_kpgt_fp')
+        ),
+        dict(
+            name='loss_kpgt_desc_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss_kpgt_desc')
+        ),
+        dict(
+            name='loss_kpgt_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss_kpgt')
+        ),
+        dict(
             name='mae',
             type='MeanAbsoluteError',
             init_args=dict(dist_sync_on_step=False),
@@ -106,6 +137,30 @@ metrics = dict(
             type='MeanMetric',
             init_args=dict(dist_sync_on_step=False),
             arg_mapping=dict(value='loss')
+        ),
+        dict(
+            name='loss_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss')
+        ),
+        dict(
+            name='loss_kpgt_fp_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss_kpgt_fp')
+        ),
+        dict(
+            name='loss_kpgt_desc_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss_kpgt_desc')
+        ),
+        dict(
+            name='loss_kpgt_mean',
+            type='MeanMetric',
+            init_args=dict(dist_sync_on_step=False),
+            arg_mapping=dict(value='loss_kpgt')
         ),
         dict(
             name='mae',

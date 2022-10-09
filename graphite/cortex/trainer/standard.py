@@ -31,14 +31,14 @@ class Trainer(TrainerBase):
             metric_monitor: Dict[str, Any],
             device: torch.device,
             data_handler,
-            criterion: torch.nn.Module,
             optimizer: torch.optim.Optimizer,
             scheduler: torch.optim.lr_scheduler._LRScheduler,
             scheduling_interval: str,
             mixed_precision: bool,
             mixed_precision_backend: str,
             limit_batch_count: int = None,
-            validation_interval: int = 1
+            validation_interval: int = 1,
+            wandb_watch_model: bool = False
     ):
         super(Trainer, self).__init__()
 
@@ -58,7 +58,6 @@ class Trainer(TrainerBase):
         self.mixed_precision_preparations()
 
         # - modules
-        self.criterion = criterion
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -72,9 +71,10 @@ class Trainer(TrainerBase):
         else:
             self.model = self.model.to(self.device)
 
-        # if self.its_wandb_process:
-        #     wandb.watch(self.model, criterion=self.criterion, log='all', log_freq=1)
-        #     log_message(logger, "wandb watch", self.args)
+        self.wandb_watch_model = wandb_watch_model
+        if self.its_wandb_process and self.wandb_watch_model:
+            wandb.watch(self.model, criterion=self.model.criterion, log='all', log_freq=1)
+            log_message(logger, "~> wandb watch is activated.", self.args)
 
         # - building the metrics
         self.reset_metrics()
@@ -235,16 +235,11 @@ class Trainer(TrainerBase):
     def train_step(self, mode: str, batch_index: int, batch_data):
         # - latent representations
         self.model.train()
-        outputs = self.model(batch_data)
-        loss = self.compute_loss(outputs, batch_data)
-        outputs.update(dict(loss=loss, y=batch_data['y']))
+        loss, outputs = self.model(batch_data)
         self.metrics_forward(mode=mode, outputs=outputs)
         if self.its_wandb_process:
             wandb.log({mode: dict(loss=loss, step_index=batch_index)})
         return loss
-
-    def compute_loss(self, outputs, batch_data):
-        return self.criterion(outputs['preds'], batch_data['y'])
 
     @torch.no_grad()
     def validate_epoch(
@@ -268,9 +263,7 @@ class Trainer(TrainerBase):
     @torch.no_grad()
     def validate_step(self, mode: str, batch_index: int, batch_data):
         self.model.eval()
-        outputs = self.model(batch_data)
-        loss = self.compute_loss(outputs, batch_data)
-        outputs.update(dict(loss=loss, y=batch_data['y']))
+        loss, outputs = self.model(batch_data)
         self.metrics_forward(mode=mode, outputs=outputs)
         return loss
 

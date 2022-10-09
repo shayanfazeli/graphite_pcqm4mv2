@@ -57,14 +57,12 @@ model = dict(
                 path_encoding_code_dim=__path_encoding_code_dim,
                 encode_node_degree_centrality=__encode_node_degree_centrality
             )
+        ),
+        loss_config=dict(
+            type='L1Loss',
+            args=dict()
         )
     )
-)
-
-
-loss = dict(
-    type='L1Loss',
-    args=dict()
 )
 
 optimizer = dict(

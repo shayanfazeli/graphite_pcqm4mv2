@@ -26,7 +26,8 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
             distributed: bool,
             distributed_sampling: str,
             dataloader_base_args: Dict[str, Any],
-            split_dict_filepath: str = None
+            split_dict_filepath: str = None,
+            kpgt: bool = False
     ):
         super(Pyg2DPCQM4Mv2, self).__init__()
         self.root_dir = root_dir  # '/home/shayan/from_source/GRPE/data'
@@ -36,12 +37,19 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
         self.distributed = distributed
         self.distributed_sampling = distributed_sampling
         self.dataloader_base_args = dataloader_base_args
+        self.kpgt = kpgt
 
     def get_dataloaders(self,):
         # torch.multiprocessing.freeze_support()
-        dataset = PCQM4Mv2Dataset(root=self.root_dir, split_dict_filepath=None, transform=torchvision.transforms.Compose([
-            getattr(transforms_lib, e['type'])(**e.get('args', dict())) for e in self.transform_configs
-        ]))
+        dataset = PCQM4Mv2Dataset(
+            root=self.root_dir,
+            split_dict_filepath=None,
+            transform=torchvision.transforms.Compose([
+                getattr(transforms_lib, e['type'])(**e.get('args', dict())) for e in self.transform_configs
+            ]),
+            descriptor=self.kpgt,
+            fingerprint=self.kpgt
+        )
 
         split_idx = dataset.get_idx_split()
         datasets = {k: dataset[v] for k, v in split_idx.items()}

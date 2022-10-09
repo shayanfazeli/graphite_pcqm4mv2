@@ -75,11 +75,12 @@ def collate_fn(batch):
 
         output['shortest_path_feature_trajectory'] = torch.stack(shortest_path_feature_trajectory).long()
 
-    if 'molecule_fingerprint' in batch[0]:
-        output['molecule_fingerprint'] = torch.stack([g['molecule_fingerprint'] for g in batch], dim=0)
+    if 'fingerprint' in batch[0]:
+        output['molecule_fingerprint'] = torch.stack([g['fingerprint'] for g in batch], dim=0).float()
 
     if 'molecule_descriptor' in batch[0]:
-        output['molecule_descriptor'] = torch.stack([g['molecule_descriptor'] for g in batch], dim=0)
+        output['molecule_descriptor'] = torch.stack([g['molecule_descriptor'] for g in batch], dim=0)[:, 1:].float()
+        output['molecule_descriptor'] = torch.nan_to_num(output['molecule_descriptor'], nan=0)
 
     # - 3d features
     for k in ['positions_3d', 'comenet_features1', 'comenet_features2']:
