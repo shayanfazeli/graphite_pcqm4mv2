@@ -125,11 +125,11 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                 num_heads=number_of_heads,
                 num_connection_types=self.shortest_path_length_upperbound + 5,
             ) if 'shortest_path_length' in self.attention_biases else None
-            self.attention_bias_shortest_path = torch.jit.script(PathTrajectoryEncodingAttentionBias(
+            self.attention_bias_shortest_path = PathTrajectoryEncodingAttentionBias(
                 num_heads=number_of_heads,
                 code_dim=self.path_encoding_code_dim,
                 maximum_supported_path_length=path_encoding_length_upperbound
-            )) if 'shortest_path' in self.attention_biases else None
+            ) if 'shortest_path' in self.attention_biases else None
         else:
             self.attention_bias_edge = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
