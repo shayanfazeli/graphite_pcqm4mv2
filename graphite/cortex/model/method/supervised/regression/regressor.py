@@ -42,5 +42,6 @@ class Regressor(torch.nn.Module):
         return loss, dict(
             latent_reps=latent_reps,
             preds=preds,
-            y=y
+            y=y,
+            loss=loss
         )
