@@ -25,7 +25,7 @@ class SupConRegLoss(torch.nn.Module):
         n = features.shape[0]
 
         # - step 1: computing the similarities between features
-        sims = torch.div(self.features_similarity_fn(features), self.temperature)  # dim: n, n
+        sims = torch.exp(torch.div(self.features_similarity_fn(features), self.temperature))  # dim: n, n
 
         # - step 2: computing label distances
         label_distances = self.label_distance_fn(labels.unsqueeze(-1))  # dim: n, n
