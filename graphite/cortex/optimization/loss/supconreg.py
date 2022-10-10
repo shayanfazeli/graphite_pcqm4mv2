@@ -37,7 +37,10 @@ class SupConRegLoss(torch.nn.Module):
         # between all items and i.
 
         # - step 3: creating the negative-set mask for each i,j
-        mask = (ijk_mat > label_distances.unsqueeze(-1)).float()  # dim: n, n, n
+        if sims.dtype == torch.float16:
+            mask = (ijk_mat > label_distances.unsqueeze(-1)).half()
+        else:
+            mask = (ijk_mat > label_distances.unsqueeze(-1)).float()  # dim: n, n, n
         # - in the above, if you take mask[i,j], you will get the dim `n` mask of examples that are
         # negative sets
 
