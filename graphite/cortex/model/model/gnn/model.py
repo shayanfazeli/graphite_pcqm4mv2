@@ -261,27 +261,38 @@ class AttMessage(nn.Module):
 
 
 class LineGraphNodeRepresentation(nn.Module):
-    def __init__(self, width, width_head, width_scale):
+    def __init__(self, width, width_head, width_scale, pos_features: int = None):
         super().__init__()
         self.bond_encoder = BondEncoder(emb_dim=width)
         self.atom_encoder = nn.Sequential(
             AtomEncoder(emb_dim=width),
             GatedLinearBlock(width, width_head, width_scale))
 
+
+        self.pos_features = pos_features
+        pos_offset = 0 if pos_features is None else pos_features
+
         self.condenser = nn.Sequential(
-            nn.BatchNorm1d(2 * width + 18),
+            nn.BatchNorm1d(2 * width + pos_offset),
             nn.ReLU(),
-            nn.Linear(2 * width + 18, width),
+            nn.Linear(2 * width + pos_offset, width),
             nn.LayerNorm(width),
             nn.ReLU()
         )
 
     def forward(self, x):
-        bond_feats, pos_feats, atom1_feats, atom2_feats = torch.split(x, [3, 18, 9, 9], 1)
+        if self.pos_features is not None:
+            bond_feats, pos_feats, atom1_feats, atom2_feats = torch.split(x, [3, self.pos_features, 9, 9], 1)
+        else:
+            bond_feats, atom1_feats, atom2_feats = torch.split(x, [3, 9, 9], 1)
         atom_feats = self.atom_encoder(atom1_feats.long()) + self.atom_encoder(atom2_feats.long())
         bond_feats = self.bond_encoder(bond_feats.long())
         #         pos_feats =
-        return self.condenser(torch.cat((atom_feats, bond_feats, pos_feats), dim=1))
+
+        if self.pos_features is not None:
+            return self.condenser(torch.cat((atom_feats, bond_feats, pos_feats), dim=1))
+        else:
+            return self.condenser(torch.cat((atom_feats, bond_feats), dim=1))
 
 
 class CoAtGIN(pt.nn.Module):
@@ -325,7 +336,7 @@ class CoAtGIN(pt.nn.Module):
             assert pos_features is None
         self.line_graph = line_graph
         if self.line_graph:
-            self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=num_heads, width_scale=expansion)
+            self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=num_heads, width_scale=expansion, pos_features=pos_features)
         else:
             self.atom_encoder = AtomEncoder(model_dim)
         self.conv = pt.nn.ModuleList()

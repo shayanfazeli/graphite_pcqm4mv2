@@ -238,7 +238,7 @@ class GNN(torch.nn.Module):
         if not self.line_graph:
             self.atom_encoder = AtomEncoder(model_dim)
         else:
-            self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=1, width_scale=1)
+            self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=1, width_scale=1, pos_features=pos_features)
 
         self.convs = torch.nn.ModuleList()
         self.batch_norms = torch.nn.ModuleList()
@@ -352,7 +352,7 @@ class GNNWithVirtualNode(torch.nn.Module):
         if not self.line_graph:
             self.atom_encoder = AtomEncoder(model_dim)
         else:
-            self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=1, width_scale=1)
+            self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=1, width_scale=1, pos_features=pos_features)
 
         # - setting the virtual node embedding
         self.virtualnode_embedding = torch.nn.Embedding(1, model_dim)
