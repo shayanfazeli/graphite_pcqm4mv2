@@ -66,13 +66,13 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
 
         self.data, self.slices = torch.load(self.processed_paths[0])
 
+        self.include_positions = num_conformers_to_return > 0 and conformers_memmap is not None
         self.conformers_memmap = np.memmap(
             conformers_memmap,
             dtype='float32',
             mode='r',
             shape=(3746620, 10, 60, 3)
-        )
-
+        ) if conformers_memmap is not None else None
         self.num_conformers_to_return = num_conformers_to_return
         assert self.num_conformers_to_return <= 10, "up to 10 conformers are supported at the moment"
 
@@ -85,7 +85,8 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
 
     def get(self, idx):
         g = super().get(idx)
-        g.positions_3d = torch.from_numpy(np.array(self.conformers_memmap[idx, np.random.choice(self.num_conformers_to_return), :g.num_nodes, :]))
+        if self.include_positions:
+            g.positions_3d = torch.from_numpy(np.array(self.conformers_memmap[idx, np.random.choice(self.num_conformers_to_return), :g.num_nodes, :]))
         return g
 
     @property

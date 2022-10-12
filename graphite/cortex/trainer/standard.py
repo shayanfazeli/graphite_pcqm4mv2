@@ -220,15 +220,20 @@ class Trainer(TrainerBase):
         return loss.item()
 
     def move_batch_to_device(self, batch):
-        for k in batch:
-            if isinstance(batch[k], torch.Tensor) or isinstance(batch[k], Batch) or isinstance(batch[k], Data):
-                batch[k] = batch[k].to(self.device)
-            elif isinstance(batch[k], List):
-                batch[k] = [self.move_batch_to_device(e) for e in batch[k]]
-            elif isinstance(batch[k], Dict):
-                batch[k] = {k2: self.move_batch_to_device(v) for k2, v in batch[k].items()}
-            else:
-                raise Exception(f"unsupported batch element")
+        if isinstance(batch, Batch):
+            batch = batch.to(self.device)
+        elif isinstance(batch, Dict):
+            for k in batch:
+                if isinstance(batch[k], torch.Tensor) or isinstance(batch[k], Batch) or isinstance(batch[k], Data):
+                    batch[k] = batch[k].to(self.device)
+                elif isinstance(batch[k], List):
+                    batch[k] = [self.move_batch_to_device(e) for e in batch[k]]
+                elif isinstance(batch[k], Dict):
+                    batch[k] = {k2: self.move_batch_to_device(v) for k2, v in batch[k].items()}
+                else:
+                    raise Exception(f"unsupported batch element")
+        else:
+            raise Exception(f"unrecognized batch type: {type(batch)}")
 
         return batch
 

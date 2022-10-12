@@ -2,10 +2,17 @@ import abc
 from typing import Dict, List, Any
 import torch.utils.data.dataloader
 import torchvision.transforms
-from graphite.data.pcqm4mv2.pyg.collator import collate_fn
+import graphite.data.pcqm4mv2.pyg.collator as collate_fn_lib
 from graphite.data.handler.base import DataHandlerBase
-from graphite.data.pcqm4mv2.pyg import PCQM4Mv2Dataset  # the 2d dataset
+from graphite.data.pcqm4mv2.pyg import PCQM4Mv2Dataset, PCQM4Mv23DDataset, PCQM4Mv2DatasetFull # the 2d dataset
 import graphite.data.pcqm4mv2.pyg.transforms as transforms_lib
+
+dataset_classes = {
+    'PCQM4Mv2Dataset': PCQM4Mv2Dataset,
+    'PCQM4Mv23DDataset': PCQM4Mv23DDataset,
+    'PCQM4Mv2DatasetFull': PCQM4Mv2DatasetFull
+}
+
 
 
 class Pyg2DPCQM4Mv2(DataHandlerBase):
@@ -22,33 +29,36 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
             self,
             batch_size: int,
             root_dir: str,
+            dataset: str,
             transform_configs: List[Dict[str, Any]],
             distributed: bool,
             distributed_sampling: str,
             dataloader_base_args: Dict[str, Any],
             split_dict_filepath: str = None,
-            kpgt: bool = False
+            dataset_args=dict(),
+            collate_fn='collate_fn'
     ):
         super(Pyg2DPCQM4Mv2, self).__init__()
         self.root_dir = root_dir  # '/home/shayan/from_source/GRPE/data'
         self.batch_size = batch_size
+        self.dataset_class = dataset
         self.transform_configs = transform_configs
         self.split_dict_filepath = split_dict_filepath
         self.distributed = distributed
         self.distributed_sampling = distributed_sampling
         self.dataloader_base_args = dataloader_base_args
-        self.kpgt = kpgt
+        self.dataset_args = dataset_args
+        self.collater_choice = collate_fn
 
     def get_dataloaders(self,):
         # torch.multiprocessing.freeze_support()
-        dataset = PCQM4Mv2Dataset(
+        dataset = dataset_classes[self.dataset_class](
             root=self.root_dir,
-            split_dict_filepath=None,
+            split_dict_filepath=self.split_dict_filepath,
             transform=torchvision.transforms.Compose([
                 getattr(transforms_lib, e['type'])(**e.get('args', dict())) for e in self.transform_configs
-            ]),
-            descriptor=self.kpgt,
-            fingerprint=self.kpgt
+            ]) if len(self.transform_configs) > 0 else None,
+            **self.dataset_args
         )
 
         split_idx = dataset.get_idx_split()
@@ -78,7 +88,7 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
                 # shuffle='train' in mode,
                 batch_size=self.batch_size,
                 sampler=samplers[mode],
-                collate_fn=collate_fn,
+                collate_fn=getattr(collate_fn_lib, self.collater_choice),
                 **self.dataloader_base_args
             ) for mode, dataset in datasets.items()
         }

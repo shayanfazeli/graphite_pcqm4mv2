@@ -2,6 +2,7 @@ data = dict(
     type='Pyg2DPCQM4Mv2',
     args=dict(
         batch_size=256,
+        dataset="PCQM4Mv2Dataset",
         root_dir='/home/shayan/from_source/GRPE/data',
         transform_configs=[
             # dict(type='EncodeNode2NodeShortestPathFeatureTrajectory'),

@@ -11,11 +11,13 @@ from graphite.utilities.argument_parsing.train import base_args, distributed_arg
 from graphite.utilities.distributed.utilities import setup_distributed_training_if_requested
 import graphite.data.handler as data_handler_lib
 import graphite.cortex.optimization.optimizer as optimizer_lib
+import graphite.cortex.optimization.special as special_optimization_lib
 import graphite.cortex.optimization.scheduler as scheduler_lib
 import graphite.cortex.model as model_lib
 import graphite.cortex.trainer as trainer_lib
 from graphite.utilities.wandb.utilities import initialize_wandb
 from graphite.utilities.logging import get_logger, log_message
+
 
 logger = get_logger(__name__)
 
@@ -55,14 +57,18 @@ def main(args: argparse.Namespace) -> None:
             args=dict()
         )
 
-    optimizer = getattr(optimizer_lib, config['optimizer']['type'])(model.parameters(), **config['optimizer']['args'])
-    scheduler = getattr(scheduler_lib, config['scheduler']['type'])(optimizer, **config['scheduler']['args'])
+    if 'special_optimization' not in config:
+        optimizer = getattr(optimizer_lib, config['optimizer']['type'])(model.parameters(), **config['optimizer']['args'])
+        scheduler = getattr(scheduler_lib, config['scheduler']['type'])(optimizer, **config['scheduler']['args'])
+        scheduling_interval = config['scheduler'].get('interval', 'step')
+    else:
+        optimizer, scheduler, scheduling_interval = getattr(special_optimization_lib, config['special_optimization']['type'])(model=model, **config['special_optimization']['args'])
+
     log_message(
         logger, f"""
             optimizer: {type(optimizer)}
             scheduler: {type(scheduler)}
-        """,
-                args)
+        """, args)
 
     trainer = getattr(trainer_lib, config['trainer']['type'])(
         device=get_device(args.gpu),
@@ -72,12 +78,11 @@ def main(args: argparse.Namespace) -> None:
         data_handler=data_handler,
         optimizer=optimizer,
         scheduler=scheduler,
-        scheduling_interval=config['scheduler'].get('interval', 'step'),
+        scheduling_interval=scheduling_interval,
         **config['trainer']['args']
     )
 
     trainer.run()
-
     wandb.finish()
 
 

@@ -1,1 +1,1 @@
-from .collator import collate_fn, default_collate_fn
+from .collator import collate_fn, default_collate_fn, default_collate_fn_with_kpgt

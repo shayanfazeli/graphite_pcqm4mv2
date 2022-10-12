@@ -1,5 +1,5 @@
 _base_ = [
-    './dataset_2d_for_transformers_base.py',
+    './dataset_2d.py',
 ]
 
 data = dict(
@@ -8,6 +8,6 @@ data = dict(
             fingerprint=True,
             descriptor=True
         ),
-        root_dir='/data/pcqm4mv2_kpgt/',
+        collate_fn='default_collate_fn_with_kpgt'
     )
 )

@@ -1,6 +1,8 @@
 import torch
 import torch.nn
 from torch_geometric.loader.dataloader import Collater
+
+from graphite.data.pcqm4mv2.pyg.transforms import LineGraphTransform
 from graphite.data.utilities.sequence_collate.utilities import pad_sequence, pad_sequence_2d
 
 default_collate_fn = Collater([], [
@@ -22,14 +24,12 @@ def collate_fn(batch):
     node_counts = torch.LongTensor([graphs[i].num_nodes for i in range(len(batch))])
     max_node_count = node_counts.max().item()
 
-    node_type = pad_sequence([g['node_type'] for g in batch], pad_dim=0, pad_value=0, stack_dim=0, max_len=max_node_count)[0].long()
     node_features = pad_sequence([g.x for g in batch], pad_dim=0, pad_value=0, stack_dim=0, max_len=max_node_count)[
         0].long()
-    edge_type = pad_sequence([g.edge_attr for g in batch], pad_dim=0, pad_value=259, stack_dim=0, max_len=None)[
+    edge_type = pad_sequence([g.edge_attr for g in batch], pad_dim=0, pad_value=-1, stack_dim=0, max_len=None)[
         0].long()
 
     output = dict(
-        node_type=node_type,
         node_features=node_features,
         edge_type=edge_type,
         graphs=graphs,
@@ -38,6 +38,9 @@ def collate_fn(batch):
 
     if 'y' in graphs:
         output['y'] = graphs.y
+
+    if 'node_type' in batch[0]:
+        output['node_type'] = pad_sequence([g['node_type'] for g in batch], pad_dim=0, pad_value=0, stack_dim=0, max_len=max_node_count)[0].long()
 
     if 'node2node_shortest_path_length_type' in batch[0]:
         output['node2node_shortest_path_length_type'] = pad_sequence_2d(
@@ -102,3 +105,15 @@ def collate_fn(batch):
             assert not torch.any(torch.isnan(output[k])).item()
 
     return output
+
+
+def default_collate_fn_with_kpgt(batch):
+    fingerprint = torch.stack([g.fingerprint for g in batch])
+    molecule_descriptor = torch.stack([g.molecule_descriptor for g in batch])
+
+    g = default_collate_fn(batch)
+    del g.fingerprint
+    del g.molecule_descriptor
+    g.molecule_fingerprint = fingerprint.float()
+    g.molecule_descriptor = torch.nan_to_num(molecule_descriptor[:, 1:], nan=0).float()
+    return g
