@@ -5,7 +5,7 @@ _base_ = [
 data = dict(
     args=dict(
         dataset_args=dict(
-            conformers_memmap='/data/conformers.np',
+            conformers_memmap='/home/shayan/data/conformers/conformers.np',
             num_conformers_to_return=2,
         ),
         transform_configs=[

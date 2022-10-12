@@ -1,9 +1,5 @@
-"""
-Standard GRPE - Exp1
-"""
-
 _base_ = [
-    '../../../../dataset/pcqm4mv2/dataset_2d_linegraph.py',
+    '../../../../dataset/pcqm4mv2/dataset_3d_bond_kpgt_linegraph.py',
     '../../../../model/coatgin/coatgin.py',
 ]
 
@@ -12,7 +8,7 @@ __number_of_processes = 4  # this is not directly used, the caller has to make s
 __number_of_training_items = 3378606
 
 # - critical hyperparameters
-__batch_size = 128
+__batch_size = 512
 __warmup_epochs = 20
 __max_epochs = 120
 __learning_rate = 3e-3
@@ -26,12 +22,13 @@ data = dict(
 
 
 model = dict(
-    type="Regressor",
+    type="RegressorWithKPGTRegularization",
     args=dict(
         model_config=dict(
             args=dict(
                 node_encoder_config=dict(
                     args=dict(
+                        pos_features=18,
                         line_graph=True
                     )
                 )
@@ -41,6 +38,18 @@ model = dict(
             type='L1Loss',
             args=dict()
         ),
+        kpgt_loss_config=dict(
+            fingerprint=dict(
+                factor=5e-2,
+                type='BCEWithLogitsLoss',
+                args=dict()
+            ),
+            descriptor=dict(
+                factor=1e-1,
+                type='L1Loss',
+                args=dict()
+            )
+        )
     )
 )
 
