@@ -4,7 +4,7 @@ _base_ = [
 ]
 
 # - critical hyperparameters
-__batch_size = 128
+__batch_size = 512
 __warmup_epochs = 20
 __max_epochs = 120
 __learning_rate=3e-3
