@@ -13,8 +13,6 @@ import torch
 from dgl.data.utils import download
 from torch_geometric.data import InMemoryDataset
 from torch_geometric.data import Data
-from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
-from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
 from graphite.utilities.logging import get_logger
 from graphite.utilities.io.extract_tar import extract_tar_gz_file
 from graphite.utilities.rdkit import add_conformers
@@ -130,6 +128,8 @@ class PCQM4Mv23DDataset(InMemoryDataset):
         suppl = rdkit.Chem.SDMolSupplier(osp.join(self.raw_dir, 'pcqm4m-v2-train.sdf'))
 
         print("Converting SMILES strings into graphs...")
+        from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
+        from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
         data_list = []
         train_indices = set(self.get_idx_split()['train'].tolist())
         for i in tqdm(range(len(smiles_list))):

@@ -12,8 +12,6 @@ import torch
 
 from torch_geometric.data import InMemoryDataset
 from torch_geometric.data import Data
-from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
-from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
 from graphite.utilities.logging import get_logger
 
 
@@ -29,7 +27,9 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
         descriptor=False,
         fingerprint=False,
         conformers_memmap: str = None,
-        num_conformers_to_return: int = 0
+        num_conformers_to_return: int = 0,
+        fingerprint_memmap: str = None,
+        descriptor_memmap: str = None
     ):
         """
         Pytorch Geometric PCQM4Mv2 dataset object
@@ -76,6 +76,24 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
         self.num_conformers_to_return = num_conformers_to_return
         assert self.num_conformers_to_return <= 10, "up to 10 conformers are supported at the moment"
 
+        self.fingerprint_memmap = np.memmap(
+            fingerprint_memmap,
+            dtype='float32',
+            mode='r',
+            shape=(3746620, 512)
+        ) if fingerprint_memmap is not None else None
+
+        self.descriptor_memmap = np.memmap(
+            descriptor_memmap,
+            dtype='float32',
+            mode='r',
+            shape=(3746620, 201)
+        ) if descriptor_memmap is not None else None
+
+        # - trying a sample get as an additional sanity check
+        _ = self.get(0)
+
+
     def delete_data(self):
         self.data = None
         self.slices = None
@@ -85,6 +103,23 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
 
     def get(self, idx):
         g = super().get(idx)
+
+        if self.fingerprint:
+            if self.fingerprint_memmap is None and 'fingerprint' not in g:
+                raise Exception("~> the cached dataset, as is, does not contain fingerprint information."
+                                "please consider recreating the dataset or to provide fingerprint memmap.")
+
+            if 'fingerprint' not in g:
+                g['fingerprint'] = torch.from_numpy(np.array(self.fingerprint_memmap[idx, :])).float()
+
+        if self.descriptor:
+            if self.descriptor_memmap is None and 'molecule_descriptor' not in g:
+                raise Exception("~> the cached dataset, as is, does not contain molecule descriptor information."
+                                "please consider recreating the dataset or to provide molecule descriptor memmap.")
+
+            if 'molecule_descriptor' not in g:
+                g['molecule_descriptor'] = torch.from_numpy(np.array(self.descriptor_memmap[idx, :])).float()
+
         if self.include_positions:
             g.positions_3d = torch.from_numpy(np.array(self.conformers_memmap[idx, np.random.choice(self.num_conformers_to_return), :g.num_nodes, :]))
         return g
@@ -113,6 +148,8 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
 
         print("there is pre-transform!")
         print("Converting SMILES strings into graphs...")
+        from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
+        from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
         data_list = []
         for i in tqdm(range(len(smiles_list))):
             data = Data()

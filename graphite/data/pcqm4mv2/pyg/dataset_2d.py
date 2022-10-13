@@ -12,8 +12,6 @@ import torch
 
 from torch_geometric.data import InMemoryDataset
 from torch_geometric.data import Data
-from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
-from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
 from graphite.utilities.logging import get_logger
 
 
@@ -101,6 +99,9 @@ class PCQM4Mv2Dataset(InMemoryDataset):
 
         print("there is pre-transform!")
         print("Converting SMILES strings into graphs...")
+
+        from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
+        from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
         data_list = []
         for i in tqdm(range(len(smiles_list))):
             data = Data()

@@ -1,13 +1,16 @@
 _base_ = [
-    './dataset_3d_bond.py',
+    './dataset_2d_kpgt.py',
 ]
 
 data = dict(
     args=dict(
         dataset_args=dict(
-            fingerprint=True,
-            descriptor=True
+            conformers_memmap='/data/pcqm4m_datahub/conformers/conformerpool_10conf_100iter_energymin.np',
+            num_conformers_to_return=2,
         ),
-        collate_fn='default_collate_fn_with_kpgt'
+        collate_fn='default_collate_fn_with_kpgt',
+        transform_configs=[
+            dict(type='ComenetEdgeFeatures', args=dict(edge_index_key='edge_index', concatenate_with_edge_attr=True))
+        ]
     )
 )

@@ -1,5 +1,6 @@
 import sys
 from typing import Dict, List, Any
+import apex
 import copy
 import wandb
 from torch.cuda.amp import GradScaler
@@ -38,7 +39,8 @@ class Trainer(TrainerBase):
             mixed_precision_backend: str,
             limit_batch_count: int = None,
             validation_interval: int = 1,
-            wandb_watch_model: bool = False
+            wandb_watch_model: bool = False,
+            clip_gradient: float = None
     ):
         super(Trainer, self).__init__()
 
@@ -51,11 +53,7 @@ class Trainer(TrainerBase):
         self.modes = modes
         self.limit_batch_count = limit_batch_count
         self.validation_interval = validation_interval
-
-        # - mixed precision
-        self.mixed_precision = mixed_precision
-        self.mixed_precision_backend = mixed_precision_backend
-        self.mixed_precision_preparations()
+        self.clip_gradient = clip_gradient
 
         # - modules
         self.model = model
@@ -70,6 +68,11 @@ class Trainer(TrainerBase):
             log_message(logger, '~> model is modified for distributed training', self.args)
         else:
             self.model = self.model.to(self.device)
+
+        # - mixed precision
+        self.mixed_precision = mixed_precision
+        self.mixed_precision_backend = mixed_precision_backend
+        self.mixed_precision_preparations()
 
         self.wandb_watch_model = wandb_watch_model
         if self.its_wandb_process and self.wandb_watch_model:
@@ -189,6 +192,10 @@ class Trainer(TrainerBase):
             logger.error("NaN loss encountered: terminating the experiment, please check the logs.")
             wandb.finish()
             sys.exit(0)
+
+    def clip_model_gradients(self):
+        if self.clip_gradient is not None:
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_gradient)
 
     def train_step_and_handle_mixed_precision(self, mode: str, batch_index: int, batch_data):
         self.zero_grad()
@@ -430,4 +437,4 @@ class Trainer(TrainerBase):
                     self.best_monitored_metric = observed
                     self.save(
                         epoch_index=epoch_index,
-                        prefix=f"{self.metric_monitor['metric']}={observed:.5f}")
+                        prefix=f"best-{self.metric_monitor['metric']}")#={observed:.5f}")

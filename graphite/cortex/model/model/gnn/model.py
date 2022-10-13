@@ -9,7 +9,7 @@ from torch_scatter import scatter
 from torch_geometric.data import Data, Batch
 from torch_geometric.utils import degree
 from torch_geometric.nn import MessagePassing
-from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
+from .modified_ogb import AtomEncoder, BondEncoder
 
 
 class ScaleLayer(nn.Module):
@@ -263,11 +263,10 @@ class AttMessage(nn.Module):
 class LineGraphNodeRepresentation(nn.Module):
     def __init__(self, width, width_head, width_scale, pos_features: int = None):
         super().__init__()
-        self.bond_encoder = BondEncoder(emb_dim=width)
+        self.bond_encoder = BondEncoder(emb_dim=width, left_padding=1)
         self.atom_encoder = nn.Sequential(
             AtomEncoder(emb_dim=width),
             GatedLinearBlock(width, width_head, width_scale))
-
 
         self.pos_features = pos_features
         pos_offset = 0 if pos_features is None else pos_features
@@ -276,8 +275,7 @@ class LineGraphNodeRepresentation(nn.Module):
             nn.BatchNorm1d(2 * width + pos_offset),
             nn.ReLU(),
             nn.Linear(2 * width + pos_offset, width),
-            nn.LayerNorm(width),
-            nn.ReLU()
+            nn.LayerNorm(width)
         )
 
     def forward(self, x):
@@ -287,7 +285,6 @@ class LineGraphNodeRepresentation(nn.Module):
             bond_feats, atom1_feats, atom2_feats = torch.split(x, [3, 9, 9], 1)
         atom_feats = self.atom_encoder(atom1_feats.long()) + self.atom_encoder(atom2_feats.long())
         bond_feats = self.bond_encoder(bond_feats.long())
-        #         pos_feats =
 
         if self.pos_features is not None:
             return self.condenser(torch.cat((atom_feats, bond_feats, pos_feats), dim=1))
@@ -332,8 +329,6 @@ class CoAtGIN(pt.nn.Module):
         super().__init__()
         self.num_layers = num_layers
         self.max_degree = max_degree
-        if line_graph:
-            assert pos_features is None
         self.line_graph = line_graph
         if self.line_graph:
             self.atom_encoder = LineGraphNodeRepresentation(width=model_dim, width_head=num_heads, width_scale=expansion, pos_features=pos_features)
@@ -366,6 +361,7 @@ class CoAtGIN(pt.nn.Module):
 
     def forward(self, batched_data: Batch) -> torch.Tensor:
         x, edge_index, edge_attr, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.batch
+
         batch_size = len(batched_data.ptr) - 1
         node_degree = degree(edge_index[1], len(x)).long() - 1
         node_degree.clamp_(0, self.max_degree - 1)

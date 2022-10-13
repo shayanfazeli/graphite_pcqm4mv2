@@ -4,7 +4,7 @@
 
 ```bash
 export PYTHONPATH="$PYTHONPATH:/home/shayan/phoenix/graphite";
-python3 ./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe/exp1.py \
+python3 ./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe/base.py \
 --seed=1819 \
 --name="exp1" \
 --project="graphite_1" \
@@ -22,7 +22,7 @@ torchrun \
 --standalone \
 --nnodes=1 \
 --nproc_per_node=4 \
-./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe/exp1.py \
+./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe/base.py \
 --seed=1819 \
 --name="exp5" \
 --project="graphite_2" \

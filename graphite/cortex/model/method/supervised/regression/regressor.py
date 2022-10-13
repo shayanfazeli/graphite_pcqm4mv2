@@ -39,6 +39,10 @@ class Regressor(torch.nn.Module):
         preds = self.projector(latent_reps).squeeze()
         loss = self.criterion(preds, y)
 
+        if torch.isnan(loss).item():
+            import pdb
+            pdb.set_trace()
+
         return loss, dict(
             latent_reps=latent_reps,
             preds=preds,

@@ -20,7 +20,7 @@ class EncodeNodeType(BasePygGraphitePCQM4MTransform):
             self,
             vocabulary_lengths: List[int] = [
                 36, 3, 7, 7, 5, 4, 6, 2, 2
-            ],
+            ],  # [119, 4, 12, 12, 10, 6, 6, 2, 2] ogb.utils.features.get_atom_feature_dims()
     ):
         """constructor"""
         super(EncodeNodeType, self).__init__()

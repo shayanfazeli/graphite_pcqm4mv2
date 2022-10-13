@@ -70,6 +70,10 @@ class RegressorWithKPGTRegularization(torch.nn.Module):
         kpgt_loss_desc = self.criterion_descriptor(kpgt_logits_desc, batch_data['molecule_descriptor'])
         loss_kpgt = self.kpgt_fingerprint_loss_coeff * kpgt_loss_fp + self.kpgt_descriptor_loss_coeff * kpgt_loss_desc
 
+        if torch.isnan(loss+loss_kpgt).item():
+            import pdb
+            pdb.set_trace()
+
         return loss + loss_kpgt, dict(
             latent_reps=latent_reps,
             preds=preds,

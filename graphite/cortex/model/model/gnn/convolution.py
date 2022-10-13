@@ -222,10 +222,6 @@ class GNN(torch.nn.Module):
     ):
         """constructor"""
         super(GNN, self).__init__()
-
-        if line_graph:
-            assert pos_features is None
-
         self.num_layers = num_layers
         self.drop_ratio = drop_ratio
         self.JK = JK
