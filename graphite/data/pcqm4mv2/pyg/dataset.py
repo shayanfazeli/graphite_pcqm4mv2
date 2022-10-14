@@ -1,3 +1,4 @@
+import copy
 import os
 import os.path as osp
 import rdkit
@@ -179,7 +180,7 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
 
             if self.pre_transform is not None and i == 0:
                 # - testing pre-transform
-                _ = self.pre_transform(data)
+                _ = self.pre_transform(copy.deepcopy(data))
 
             data_list.append(data)
 
