@@ -1,3 +1,4 @@
+from typing import Tuple
 import torch
 import torch.nn
 from .multi_head_attention import MultiHeadAttention
@@ -57,6 +58,7 @@ class EncoderLayer(torch.nn.Module):
         edge_bias_guide_complementary_values: torch.nn.Module,
         shortest_path_length_bias_guide_complementary_values: torch.nn.Module,
         mask: torch.Tensor,
+        toeplitz: Tuple[torch.nn.parameter.Parameter, torch.nn.parameter.Parameter]
     ) -> torch.Tensor:
         """
         Parameters
@@ -92,6 +94,10 @@ class EncoderLayer(torch.nn.Module):
         mask: `torch.Tensor`, optional(default=None)
             The sequence mask `dim=(batch_size, max_node_count)`.
 
+        toeplitz: `Tuple[torch.nn.parameter.Parameter, torch.nn.parameter.Parameter]`, required
+            If provided, it will be the row and column parameter for toeplitz-based modification
+            of post-softmax attention weights.
+
         Returns
         ----------
         `torch.Tensor`:
@@ -108,7 +114,8 @@ class EncoderLayer(torch.nn.Module):
             shortest_path_feature_trajectory=shortest_path_feature_trajectory,
             mask=mask,
             edge_bias_guide_complementary_values=edge_bias_guide_complementary_values,
-            shortest_path_length_bias_guide_complementary_values=shortest_path_length_bias_guide_complementary_values
+            shortest_path_length_bias_guide_complementary_values=shortest_path_length_bias_guide_complementary_values,
+            toeplitz=toeplitz
         )
         reps = self.self_attention_dropout(reps)
         node_reps = node_reps + reps

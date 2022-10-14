@@ -12,3 +12,11 @@ def toeplitz(c, r):
     shape = len(c), len(r)
     i, j = torch.ones(*shape).nonzero().T
     return vals[j-i].reshape(*shape)
+
+
+def toeplitz_multihead(c, r):
+    num_heads = c.shape[0]
+    vals = torch.cat((r, c[:,  1:].flip(1)), dim=1)
+    shape = c.shape[1], r.shape[1]
+    i, j = torch.ones(*shape).nonzero().T
+    return vals[:, j-i].reshape(num_heads, *shape)

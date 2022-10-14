@@ -18,6 +18,6 @@ def fix_random_seeds(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
     numpy.random.seed(seed)
     random.seed(seed)
-    cudnn.benchmark = False
-    cudnn.deterministic = True
+    # cudnn.benchmark = True
+    # cudnn.deterministic = False
     # torch.use_deterministic_algorithms(True)

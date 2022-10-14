@@ -61,6 +61,17 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         The dimension of each embedding for encoding the shortest path trajectory. This parameter is related to
         the `shortest_path` attention bias. To be precise, this is dirrectly related to `max_length_considered` used
         in :cls:`EncodeNode2NodeShortestPathFeatureTrajectory`.
+
+    encode_node_degree_centrality: `bool`, optional (default=False)
+        To  perform degree  centrality encoding (per Graphormer's pipeline). Please note that normally
+        this is not done in GRPE pipeline.
+
+    node_degree_upperbound: `int`, optional (default=50)
+        Upperbound for node degree centrality encoding
+
+    toeplitz: `bool`, optional (default=False)
+        If `True`, the parameterization of [this paper](https://arxiv.org/pdf/2205.13401.pdf) will
+        be applied on the MHA layers.
     """
 
     def __init__(
@@ -82,7 +93,8 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             path_encoding_length_upperbound: int = 5,
             path_encoding_code_dim: int = None,
             encode_node_degree_centrality: bool = False,
-            node_degree_upperbound: int = 50
+            node_degree_upperbound: int = 50,
+            toeplitz: bool = False
     ):
         """constructor"""
         super(GraphRelativePositionalEncodingNetworkAdvanced, self).__init__()
@@ -167,6 +179,11 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             ) for _ in range(self.number_of_layers)
         ])
 
+        self.toeplitz = toeplitz
+        if self.toeplitz:
+            self.toeplitz_row = torch.nn.Parameter(torch.ones(number_of_heads, 61))
+            self.toeplitz_col = torch.nn.Parameter(torch.ones(number_of_heads, 61))
+
     def perturb_node_representations(self, node_features):
         if self.training and self.perturbation > 0:
             perturbation = torch.empty_like(node_features).uniform_(
@@ -239,6 +256,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                     edge_bias_guide_complementary_values=self.attention_bias_edge_complementary_values[i],
                     shortest_path_length_bias_guide_complementary_values=self.attention_bias_shortest_path_length_complementary_values[i],
                     mask=mask,
+                    toeplitz=(self.toeplitz_row, self.toeplitz_col) if self.toeplitz else None
                 )
             else:
                 node_features = encoder_layer(
@@ -252,6 +270,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
                     edge_bias_guide_complementary_values=self.attention_bias_edge_complementary_values,
                     shortest_path_length_bias_guide_complementary_values=self.attention_bias_shortest_path_length_complementary_values,
                     mask=mask,
+                    toeplitz=(self.toeplitz_row, self.toeplitz_col) if self.toeplitz else None
                 )
 
         # - gathering the representations for the task node as graph embeddings

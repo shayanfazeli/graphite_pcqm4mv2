@@ -1,6 +1,9 @@
+from typing import Tuple
 import copy
 import torch
 import torch.nn
+
+from graphite.utilities.miscellaneous import toeplitz_multihead
 
 
 class MultiHeadAttention(torch.nn.Module):
@@ -75,6 +78,7 @@ class MultiHeadAttention(torch.nn.Module):
         edge_bias_guide_complementary_values: torch.nn.Module,
         shortest_path_length_bias_guide_complementary_values: torch.nn.Module,
         mask: torch.Tensor = None,
+        toeplitz: Tuple[torch.nn.parameter.Parameter, torch.nn.parameter.Parameter] = None
     ) -> torch.Tensor:
         """
         Parameters
@@ -109,6 +113,10 @@ class MultiHeadAttention(torch.nn.Module):
 
         mask: `torch.Tensor`, optional(default=None)
             The sequence mask `dim=(batch_size, max_node_count)`.
+
+        toeplitz: `Tuple[torch.nn.parameter.Parameter, torch.nn.parameter.Parameter]`, required
+            If provided, it will be the row and column parameter for toeplitz-based modification
+            of post-softmax attention weights.
 
         Returns
         ----------
@@ -154,7 +162,12 @@ class MultiHeadAttention(torch.nn.Module):
                 mask.view(mask.shape[0], 1, 1, mask.shape[1]), -torch.inf
             )
 
+        # - b, h, n, n
         a = torch.softmax(a, dim=3)
+
+        if toeplitz is not None:
+            n = a.shape[-1]
+            a = a * toeplitz_multihead(r=toeplitz[0], c=toeplitz[1])[:, :n, :n].unsqueeze(0)
 
         # - attention dropout
         a = self.att_dropout(a)
