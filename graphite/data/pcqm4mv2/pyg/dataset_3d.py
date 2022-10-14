@@ -34,7 +34,10 @@ class PCQM4Mv23DDataset(InMemoryDataset):
             split_dict_filepath=None,
             descriptor=False,
             fingerprint=False,
-            additional_conformer_count: int = 0
+            conformers_memmap: str = None,
+            conformer_pool_size: int = 0,
+            fingerprint_memmap: str = None,
+            descriptor_memmap: str = None,
     ):
         """
         Pytorch Geometric PCQM4Mv2 dataset object
@@ -56,7 +59,30 @@ class PCQM4Mv23DDataset(InMemoryDataset):
         self.fingerprint = fingerprint
         self._url_2d = url_2d
         self._url_3d = url_3d
-        self.additional_conformer_count = additional_conformer_count
+
+        self.include_positions = conformer_pool_size > 0 and conformers_memmap is not None
+        self.conformers_memmap = np.memmap(
+            conformers_memmap,
+            dtype='float32',
+            mode='r',
+            shape=(3746620, 10, 60, 3)
+        ) if conformers_memmap is not None else None
+        self.num_conformers_to_return = conformer_pool_size
+        assert self.num_conformers_to_return <= 10, "up to 10 conformers are supported at the moment"
+
+        self.fingerprint_memmap = np.memmap(
+            fingerprint_memmap,
+            dtype='float32',
+            mode='r',
+            shape=(3746620, 512)
+        ) if fingerprint_memmap is not None else None
+
+        self.descriptor_memmap = np.memmap(
+            descriptor_memmap,
+            dtype='float32',
+            mode='r',
+            shape=(3746620, 201)
+        ) if descriptor_memmap is not None else None
 
         super(PCQM4Mv23DDataset, self).__init__(self.folder, transform, pre_transform)
 
@@ -162,13 +188,19 @@ class PCQM4Mv23DDataset(InMemoryDataset):
                 assert data.num_nodes == positions.shape[0]
                 data['positions_3d'] = positions
             else:
-                data['positions_3d'] = torch.zeros((data.x.shape[0], 3)).float()
+                data['positions_3d'] = torch.from_numpy(np.array(
+                    self.conformers_memmap[i, np.random.choice(self.num_conformers_to_return), :data.num_nodes, :]))
 
             if self.descriptor:
                 mol = rdkit.Chem.MolFromSmiles(smiles)
                 data['fingerprint'] = torch.tensor(rdkit.Chem.RDKFingerprint(mol, minPath=1, maxPath=7, fpSize=512)).long()
             if self.fingerprint:
                 data['molecule_descriptor'] = torch.tensor(RDKit2DNormalized().process(smiles)).float()
+
+            if self.pre_transform is not None and i == 0:
+                # - testing pre-transform
+                _ = self.pre_transform(data)
+
             data_list.append(data)
 
         # double-check prediction target
@@ -181,7 +213,8 @@ class PCQM4Mv23DDataset(InMemoryDataset):
         )
 
         if self.pre_transform is not None:
-            data_list = [self.pre_transform(data) for data in data_list]
+            print("applying pre-processing transform...")
+            data_list = [self.pre_transform(data) for data in tqdm(data_list)]
 
         data, slices = self.collate(data_list)
 

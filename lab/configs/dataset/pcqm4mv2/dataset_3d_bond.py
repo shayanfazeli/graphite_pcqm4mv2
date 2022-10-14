@@ -6,7 +6,7 @@ data = dict(
     args=dict(
         dataset_args=dict(
             conformers_memmap='/data/pcqm4m_datahub/conformers/conformerpool_10conf_100iter_energymin.np',
-            num_conformers_to_return=2,
+            conformer_pool_size=1,
         ),
         transform_configs=[
             dict(type='ComenetEdgeFeatures', args=dict(edge_index_key='edge_index', concatenate_with_edge_attr=True))
