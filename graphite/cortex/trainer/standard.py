@@ -83,13 +83,14 @@ class Trainer(TrainerBase):
         self.reset_metrics()
         self.metric_monitor = metric_monitor
         self.initialize_metric_monitor()
-        log_message(logger, '~> metrics are prepared', self.args)
+        log_message(logger, '~> metrics are prepared.', self.args)
 
         # - owning the data handler
         self.data_handler = data_handler
 
         # - preparing the dataloaders
         self.dataloaders = data_handler.get_dataloaders()
+        log_message(logger, '~> dataloaders are ready.', self.args)
 
         # - the scheduling interval
         assert scheduling_interval in ['step', 'epoch'], f'unknown scheduling interval: {scheduling_interval}'
@@ -329,6 +330,7 @@ class Trainer(TrainerBase):
             torch.distributed.barrier()
 
     def run(self):
+        log_message(logger, '~> running...\n', self.args)
         # - trying to resume
         if self.args.resume:
             log_message(logger, "~> attempting to resume from existing checkpoint", self.args)

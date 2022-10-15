@@ -37,10 +37,13 @@ Getting versions:  `apt-cache madison docker-ce`
 
 
 Installing:
+
+
 ```sudo apt-get install docker-ce=5:20.10.19~3-0~ubuntu-focal docker-ce-cli=5:20.10.19~3-0~ubuntu-focal containerd.io docker-compose-plugin```
 
 ## NVIDIA Docker
-```curl https://get.docker.com | sh \
+```
+curl https://get.docker.com | sh \
   && sudo systemctl --now enable docker
 ```
 
@@ -79,11 +82,17 @@ docker run --ipc=host --gpus all -v $PWD:/workspace -v /data/pcqm4mv2_datahub:/w
 
 For example:
 ```
-docker run --ipc=host --gpus all -v $PWD:/workspace -v /data/pcqm4mv2_datahub:/workspace/data -p 4044:8888 --hostname localhost --rm -it graphite /bin/bash 
+nvidia-docker run -d --ipc=host --gpus all -v $PWD:/workspace -v /data/pcqm4mv2_datahub:/data/pcqm4mv2_datahub -p 4043:8888 --hostname localhost --rm -it graphite /bin/bash 
 ```
 
 ```
 sudo groupadd docker
 sudo usermod -aG docker $USER
 newgrp docker
+```
+
+
+## Deletion
+```
+docker prune -a 
 ```

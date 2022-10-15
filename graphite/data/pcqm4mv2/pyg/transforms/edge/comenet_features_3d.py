@@ -23,7 +23,8 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
             num_radial=3,
             num_spherical=2,
             edge_index_key: str = 'edge_index',
-            concatenate_with_edge_attr: bool = False
+            concatenate_with_edge_attr: bool = False,
+            fill_na: float = None
     ):
         """constructor"""
         super(ComenetEdgeFeatures, self).__init__()
@@ -32,6 +33,7 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         self.feature2 = angle_emb(num_radial=num_radial, num_spherical=num_spherical, cutoff=cutoff)
         self.edge_index_key = edge_index_key
         self.concatenate_with_edge_attr = concatenate_with_edge_attr
+        self.fill_na = 0.0
 
     def forward(self, g: Data) -> Data:
         """
@@ -49,8 +51,7 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         num_nodes = g.num_nodes
 
         if i.size(0) == 0:
-
-            logger.warning(f"comenet features: no edge was there in the atom with {pos.shape[0]} nodes. setting placeholder.")
+            # logger.warning(f"comenet features: no edge was there in the atom with {pos.shape[0]} nodes. setting placeholder.")
 
             if not self.concatenate_with_edge_attr:
                 g['comenet_features1'] = torch.zeros((0, 12))
@@ -152,7 +153,16 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         if not self.concatenate_with_edge_attr:
             g['comenet_features1'] = self.feature1(dist, theta, phi)
             g['comenet_features2'] = self.feature2(dist, tau)
+
+            if self.fill_na is not None:
+                g['comenet_features1'], g['comenet_features2'] = torch.nan_to_num(g['comenet_features1'], self.fill_na), torch.nan_to_num(g['comenet_features2'], self.fill_na)
         else:
-            g['edge_attr'] = torch.cat((g.edge_attr, self.feature1(dist, theta, phi), self.feature2(dist, tau)), dim=1)
+            if self.fill_na is None:
+                g['edge_attr'] = torch.cat((g.edge_attr, self.feature1(dist, theta, phi), self.feature2(dist, tau)), dim=1)
+            else:
+                g['edge_attr'] = torch.cat((
+                    g.edge_attr,
+                    torch.nan_to_num(self.feature1(dist, theta, phi), self.fill_na),
+                    torch.nan_to_num(self.feature2(dist, tau), self.fill_na)), dim=1)
 
         return g

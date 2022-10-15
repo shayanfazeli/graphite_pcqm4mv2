@@ -1,14 +1,10 @@
 _base_ = [
     '../../../../dataset/pcqm4mv2/dataset_3d_bond_kpgt_linegraph.py',
-    '../../../../model/coatgin/coatgin.py',
+    '../../../../model/coatgin/coatgin_base.py',
 ]
 
-# - additional setup
-__number_of_processes = 4  # this is not directly used, the caller has to make sure it is compatible.
-__number_of_training_items = 3378606
-
 # - critical hyperparameters
-__batch_size = 512
+__batch_size = 256
 __warmup_epochs = 20
 __max_epochs = 120
 __learning_rate = 3e-3
@@ -106,7 +102,7 @@ trainer = dict(
             metric='mae',
             direction='min'
         ),
-        mixed_precision=True,
-        mixed_precision_backend='amp',
+        mixed_precision=False,
+        mixed_precision_backend='none',
     )
 )

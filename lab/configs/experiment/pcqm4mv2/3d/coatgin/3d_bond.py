@@ -4,11 +4,11 @@ Standard GRPE - Exp1
 
 _base_ = [
     '../../../../dataset/pcqm4mv2/dataset_3d_bond.py',
-    '../../../../model/coatgin/coatgin.py',
+    '../../../../model/coatgin/coatgin_base.py',
 ]
 
 # - critical hyperparameters
-__batch_size = 256
+__batch_size = 512
 __warmup_epochs = 20
 __max_epochs = 120
 __learning_rate = 3e-3
@@ -26,7 +26,7 @@ model = dict(
     args=dict(
         model_config=dict(
             args=dict(
-                pos_features=18
+                node_encoder_config=dict(args=dict(pos_features=18))
             )
         ),
         loss_config=dict(
@@ -89,7 +89,7 @@ trainer = dict(
             metric='mae',
             direction='min'
         ),
-        mixed_precision=True,
-        mixed_precision_backend='amp',
+        mixed_precision=False,
+        mixed_precision_backend='none',
     )
 )

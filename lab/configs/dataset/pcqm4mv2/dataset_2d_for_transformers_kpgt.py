@@ -8,6 +8,6 @@ data = dict(
             fingerprint=True,
             descriptor=True
         ),
-        root_dir='/data/pcqm4mv2_kpgt/',
+        root_dir='/data/pcqm4mv2_datahub/datasets/2d_kpgt/',
     )
 )

@@ -355,9 +355,9 @@ class CoAtGIN(pt.nn.Module):
                     kernel=conv_kernel,
                     pos_features=pos_features
                 ))
-            self.virt.append(VirtMessage(model_dim, 16, 2) if use_virt else None)
-            self.att.append(AttMessage(model_dim, 16, 2) if use_att else None)
-            self.mlp.append(GatedLinearBlock(model_dim, 16, 3))
+            self.virt.append(VirtMessage(model_dim, num_heads, 2) if use_virt else None)
+            self.att.append(AttMessage(model_dim, num_heads, 2) if use_att else None)
+            self.mlp.append(GatedLinearBlock(model_dim, num_heads, 3))
 
     def forward(self, batched_data: Batch) -> torch.Tensor:
         x, edge_index, edge_attr, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.batch

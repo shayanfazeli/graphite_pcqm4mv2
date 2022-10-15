@@ -5,7 +5,7 @@ _base_ = [
 data = dict(
     args=dict(
         dataset_args=dict(
-            conformers_memmap='/data/pcqm4m_datahub/conformers/conformerpool_10conf_100iter_energymin.np',
+            conformers_memmap='/data/pcqm4mv2_datahub/conformers/conformerpool_10conf_100iter_energymin.np',
             conformer_pool_size=1,
         ),
         transform_configs=[

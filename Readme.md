@@ -4,6 +4,28 @@
 * [Datasets and Transforms](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/graphite/data/pcqm4mv2/pyg)
 
 
+
+
+## In Progress
+```bash
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_kpgt  # lambda5
+```
+
+
+
+```bash
+./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp7  # lambda4
+```
+
+
+## In Progress
+```bash
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond # lambda3
+```
+
+
+
+
 ## Additional Resources
 
 ## Conformers
