@@ -239,7 +239,7 @@ class Featurizer(object):
                                                                 properties_fn=descriptor_2d_fn_map,
                                                                 add_properties=False,
                                                                 batch_size=len(mol_batch),
-                                                                n_jobs=self.num_threads)
+                                                                n_jobs=1)
         cols = df_2.columns
         for i in range(len(batch_data)):
             mol_descriptor = df_2.iloc[i]
@@ -282,7 +282,7 @@ class Featurizer(object):
                                                         properties_fn=descriptor_3d_fn_map,
                                                         add_properties=False,
                                                         batch_size=len(new_mol_batch),
-                                                        n_jobs=self.num_threads)
+                                                        n_jobs=1)
         cols = df_3.columns
         for i in range(len(batch_data)):
             mol_descriptor = df_3.iloc[i]
