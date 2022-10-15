@@ -39,12 +39,12 @@ def write_smiles_list(start_index):
             lock.release()
         mol = Chem.MolFromSmiles(smiles_list[i])
         try:
-            new_mol = generate(
+            new_mol, energies = generate(
                 mol, 
                 align_conformers=True,
                 n_confs=10,
                 num_threads=16,
-                minimize_energy=False,
+                minimize_energy=True,
                 # ignore_failure=True,
                 add_hs=True,
                 energy_iterations=10,

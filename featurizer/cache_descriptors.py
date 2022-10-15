@@ -94,13 +94,8 @@ class CustomEncoder(json.JSONEncoder):
         if isinstance(obj, set):
             return list(obj)
         return json.JSONEncoder.default(self, obj)
-        
-def ConfToMol(mol, conf_id):
-    conf = mol.GetConformer(conf_id)
-    new_mol = Chem.Mol(mol)
-    new_mol.RemoveAllConformers()
-    new_mol.AddConformer(Chem.Conformer(conf))
-    return new_mol
+
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -115,43 +110,43 @@ if __name__ == "__main__":
 
     batch_size = args.batch_size
     num_workers = args.num_workers
-    metadata_2d = None
-    logger.info("Starting extracting 2d descriptors")
-    for i in tqdm(range(len(smiles_df) // batch_size), total=len(smiles_df)//batch_size, desc="Extracting 2d Descriptors"):
-        strings = smiles_df['smiles'].iloc[i*batch_size: min(len(smiles_df), (i+1)*batch_size)]
-        batch = []
-        for s in strings:
-            mol  = rdkit.Chem.MolFromSmiles(s)
-            batch.append(mol)
-        num_samples = len(batch)
-        df = datamol.descriptors.batch_compute_many_descriptors(batch,
-                                                                properties_fn=descriptor_2d_fn_map,
-                                                                add_properties=False,
-                                                                batch_size=num_samples,
-                                                                n_jobs=num_workers)
-        if metadata_2d is None:
-            metadata_2d = init_metadata(df)
-        col_num = 0
-        data = []
-        for k in metadata_2d:
-            dtype = df[k].dtype
-            v = df[k]
-            metadata_2d, val = update_metadata_val(metadata_2d, k, v, dtype)
-            l = metadata[k]["len"]
-            descriptors_2d[i * batch_size: i * batch_size + 1 * num_samples, col_num:col_num + l] = val.reshape(-1, l)
-            col_num += l
+#     metadata_2d = None
+#     logger.info("Starting extracting 2d descriptors")
+#     for i in tqdm(range(len(smiles_df) // batch_size), total=len(smiles_df)//batch_size, desc="Extracting 2d Descriptors"):
+#         strings = smiles_df['smiles'].iloc[i*batch_size: min(len(smiles_df), (i+1)*batch_size)]
+#         batch = []
+#         for s in strings:
+#             mol  = rdkit.Chem.MolFromSmiles(s)
+#             batch.append(mol)
+#         num_samples = len(batch)
+#         df = datamol.descriptors.batch_compute_many_descriptors(batch,
+#                                                                 properties_fn=descriptor_2d_fn_map,
+#                                                                 add_properties=False,
+#                                                                 batch_size=num_samples,
+#                                                                 n_jobs=num_workers)
+#         if metadata_2d is None:
+#             metadata_2d = init_metadata(df)
+#         col_num = 0
+#         data = []
+#         for k in metadata_2d:
+#             dtype = df[k].dtype
+#             v = df[k]
+#             metadata_2d, val = update_metadata_val(metadata_2d, k, v, dtype)
+#             l = metadata_2d[k]["len"]
+#             descriptors_2d[i * batch_size: i * batch_size + 1 * num_samples, col_num:col_num + l] = val.reshape(-1, l)
+#             col_num += l
 
-    meta_path = output_dir / "metadata_descriptor2.json"
-    logger.info(f"Dumping data metadata to: {meta_path}")
-    with open(meta_path, "w") as outfile:
-        json.dump(metadata_2d, outfile, cls=CustomEncoder)
-    logger.info(f"Dumping data : {npy_2d_path}")
-    descriptors_2d.flush()
+#     meta_path = output_dir / "metadata_descriptor2.json"
+#     logger.info(f"Dumping data metadata to: {meta_path}")
+#     with open(meta_path, "w") as outfile:
+#         json.dump(metadata_2d, outfile, cls=CustomEncoder)
+#     logger.info(f"Dumping data : {npy_2d_path}")
+#     descriptors_2d.flush()
 
     logger.info("Starting extracting 3d descriptors")
     metadata_3d = None
-    descriptors_3d = np.memmap(output_dir / "descriptors_3d.npy", mode="w+", dtype="float32", shape=(len(suppl), 301))
     suppl = rdkit.Chem.SDMolSupplier(str(sdf_path))
+    descriptors_3d = np.memmap(output_dir / "descriptors_3d.npy", mode="w+", dtype="float32", shape=(len(suppl), 301))
     for idx in tqdm(range(len(suppl) // batch_size), total=len(suppl)//batch_size, desc="Extracting 3d Descriptors"):
         batch = []
         for i in range(idx * batch_size, min(len(suppl), (idx + 1) * batch_size)):
@@ -177,7 +172,7 @@ if __name__ == "__main__":
     logger.info(f"Dumping data metadata to: {meta_path}")
     meta_path = output_dir / "metadata_descriptor3d.json"
     with open(meta_path, "w") as outfile:
-        json.dump(metadata, outfile, cls=CustomEncoder)
+        json.dump(metadata_3d, outfile, cls=CustomEncoder)
 
     logger.info(f"Dumping data : {npy_2d_path}")
     descriptors_3d.flush()

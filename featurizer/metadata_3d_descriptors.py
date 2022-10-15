@@ -1,0 +1,13 @@
+DESCRIPTORS_METADATA_3D = {"asphericity": {"dtype": "float64", "max": 0.9437496115426566, "min": 0.011073405214791105, "len": 1},
+"eccentricity": {"dtype": "float64", "max": 0.9998169268581993, "min": 0.5355056768300276, "len": 1},
+"inertial_shape_factor": {"dtype": "float64", "max": 0.026508638103289066, "min": 0.00040157635597131076, "len": 1},
+"npr1": {"dtype": "float64", "max": 0.8445316276391395, "min": 0.019134073477078472, "len": 1},
+"npr2": {"dtype": "float64", "max": 0.9996397110701482, "min": 0.5047952840510319, "len": 1},
+"pmi1": {"dtype": "float64", "max": 1412.2518090927356, "min": 35.70434557911162, "len": 1},
+"pmi2": {"dtype": "float64", "max": 5937.983748467809, "min": 156.4355409303066, "len": 1},
+"pmi3": {"dtype": "float64", "max": 5981.1873631403005, "min": 160.4504035474986, "len": 1},
+"radius_of_gyration": {"dtype": "float64", "max": 5.341842133724101, "min": 1.5143212576834908, "len": 1},
+"spherocity_index": {"dtype": "float64", "max": 0.9028035343009284, "min": 3.273920861918635e-10, "len": 1},
+"calcautocorr3d": {"dtype": "object", "len": 80},
+"calcrdf": {"dtype": "object", "len": 210},
+"calcpbf": {"dtype": "float64", "max": 1.0690093558119689, "min": 2.040155215567895e-05, "len": 1}}

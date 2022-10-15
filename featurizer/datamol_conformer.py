@@ -232,7 +232,7 @@ def generate(
 #     if add_hs:
 #         mol = dm_mol.remove_hs(mol)
 
-    return mol
+    return mol, energies
 
 
 def _get_ff(mol: Mol, forcefield: str, conf_id: int = -1):

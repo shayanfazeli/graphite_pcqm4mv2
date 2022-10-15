@@ -12,6 +12,11 @@ from .descriptors import (all_descriptors,
                          descriptor_2d_fn_map,
                          descriptor_3d_fn_map,
                          fetch_descriptor_fn)
+from .datamol_conformer import generate as datamol_generate
+
+from .metadata_2d_descriptors import DESCRIPTORS_METADATA_2D
+from .metadata_3d_descriptors import DESCRIPTORS_METADATA_3D
+from .day_light_fg_smarts_list import DAY_LIGHT_FG_SMARTS_LIST
 
 from .comenet_feature import get_comenet_feature
 
@@ -29,12 +34,11 @@ def rdchem_enum_to_list(values):
     return [values[i] for i in range(len(values))]
 
 def get_atom_feature_dims(list_of_acquired_feature_names):
-    return list(map(len, [RDKITFeaturizer.atom_vocab_dict[name] for name in list_of_acquired_feature_names]))
+    return list(map(len, [Featurizer.atom_vocab_dict[name] for name in list_of_acquired_feature_names]))
 
 def get_bond_feature_dims(list_of_acquired_feature_names):
-    list_bond_feat_dim = list(map(len, [RDKITFeaturizer.bond_vocab_dict[name] for name in list_of_acquired_feature_names]))
-    # +1 for self loop edges
-    return [_l + 1 for _l in list_bond_feat_dim]
+    list_bond_feat_dim = list(map(len, [Featurizer.bond_vocab_dict[name] for name in list_of_acquired_feature_names]))
+    return list_bond_feat_dim
 
 ogb_atom_features = {
         "atomic_num",
@@ -98,6 +102,12 @@ class Featurizer(object):
     morgan2048_fp_N = 2048
     maccs_fp_N = 167
     period_table = rdkit.Chem.GetPeriodicTable()
+    day_light_fg_smarts_list = DAY_LIGHT_FG_SMARTS_LIST
+    day_light_fg_mo_list = [Chem.MolFromSmarts(smarts) for smarts in day_light_fg_smarts_list]
+
+    MAX_NUM_ATOMS = 51
+    NUM_DESCRIPTOR_FEATURES_2D = 409
+    NUM_DESCRIPTOR_FEATURES_3D = 301
 
     def __init__(self,
                  atom_features: Optional[List] = None,
@@ -111,7 +121,7 @@ class Featurizer(object):
                  add_hs: bool = True,
                  skip_dihedral: bool = False,
                  skip_fragment_smiles: bool = False,
-                 num_workers: int = 0,
+                 num_threads: int = 0,
                  *args,
                  **kwargs,
                  ):
@@ -154,7 +164,7 @@ class Featurizer(object):
         self.add_hs = add_hs
         self.skip_dihedral = skip_dihedral
         self.skip_fragment_smiles = skip_fragment_smiles
-        self.num_workers = num_workers
+        self.num_threads = num_threads
         self.include_rings = any(['in_num_ring_with' in af for af in self.atom_features])
         self.add_comenet_features = add_comenet_features
 
@@ -168,9 +178,9 @@ class Featurizer(object):
                 mol_3d = [mol_3d]
         mol_batch = []
         for i, smile in enumerate(smiles):
-            if self.skip_fragment_smiles and Featurizer.fragment_check(smile):
-                continue
-            mol = Featurizer.smiles_to_mol(smile, package="rdkit")
+            # if self.skip_fragment_smiles and Featurizer.fragment_check(smile):
+            #     continue
+            mol = Chem.MolFromSmiles(smile)#Featurizer.smiles_to_mol(smiles)
             if len(mol.GetAtoms()) == 0:
                 continue
             mol_batch.append(mol)
@@ -179,18 +189,16 @@ class Featurizer(object):
             return None
         batch_data = []
         for mol in mol_batch:
-            if self.skip_dihedral and Featurizer.dihedral_check(mol):
-                continue
+            # if self.skip_dihedral and Featurizer.dihedral_check(mol):
+            #     continue
             data = defaultdict(list)
-
             # - atom features
-            ring_list = None
-            if self.include_rings:
-                ring_list = Featurizer.get_ring_size(mol)
+            ring_list = Featurizer.get_ring_size(mol)
             for i, atom in enumerate(mol.GetAtoms()):
-                feat_dict = self.atom_to_feature_vector(atom, ring_list[i])
+                feat_dict = self.atom_to_feature_vector_all(atom, ring_list[i])
                 for k, v in feat_dict.items():
                     data[k].append(v)
+            
             # - edge features
             N = i + 1
             data["num_atoms"] = N
@@ -204,18 +212,20 @@ class Featurizer(object):
                     data["edges"] += [(i, j), (j, i)]
                     for bond_feat_name in self.bond_features:
                         bond_feature = self.bond_to_feature_vector(bond, bond_feat_name)
-                        if bond_feature is not None:
-                            data[bond_feat_name] += [bond_feature] * 2
+                        data[bond_feat_name] += [bond_feature] * 2
+
             else:   # mol has no bonds
                 for bond_feat_name in self.bond_features:
                     data[bond_feat_name] = np.zeros((0, ), dtype=np.int64)
+
                 data["edges"] = np.zeros((0, 2), dtype=np.int64)
-            data["dist_matrix"] = rdkit.Chem.rdmolops.GetDistanceMatrix(mol)
+
+            data["dist_matrix"] = np.asarray(rdkit.Chem.rdmolops.GetDistanceMatrix(mol))
             if self.add_self_loop:
                 for i in range(N):
                     data["edges"] += [(i, i)]
-                for bond_feat_name in self.edge_features:
-                    bond_id = get_bond_feature_dims(bond_feat_name)[0] - 1
+                for bond_feat_name in self.bond_features:
+                    bond_id = get_bond_feature_dims(bond_feat_name)[0] + 1 + 1
                     data[bond_feat_name] += [bond_id] * N
 
             data["edges"] = np.array(data["edges"], np.int64)
@@ -223,22 +233,95 @@ class Featurizer(object):
             if self.add_comenet_features and mol_3d is not None:
                 data["pos"] = mol_3d[i].GetPositions()
                 data["comenet_dist_theta_phi"], data["comenet_dist_tau"] = get_comenet_feature(data)
-
+             ### morgan fingerprint
+            data['morgan_fp'] = np.array(Featurizer.get_morgan_fingerprint(mol), 'int64')
+            data['maccs_fp'] = np.array(Featurizer.get_maccs_fingerprint(mol), 'int64')
+            data['daylight_fg_counts'] = np.array(Featurizer.get_daylight_functional_group_counts(mol), 'int64')
             batch_data.append(data)
         # - descriptors
-        if self.descriptor_features_map:
-            df = datamol.descriptors.batch_compute_many_descriptors(batch_mols,
-                                                                    properties_fn=self.descriptor_features_map,
-                                                                    add_properties=False,
-                                                                    batch_size=len(batch_mols),
-                                                                    n_jobs=self.num_workers)
-            cols = df.columns
-            for i in range(len(batch_data)):
-                mol_descriptor = df.iloc[i]
-                for col in cols:
-                    batch_data[i][col] = mol_descriptor[col]
+        df_2 = datamol.descriptors.batch_compute_many_descriptors(mol_batch,
+                                                                properties_fn=descriptor_2d_fn_map,
+                                                                add_properties=False,
+                                                                batch_size=len(mol_batch),
+                                                                n_jobs=self.num_threads)
+        cols = df_2.columns
+        for i in range(len(batch_data)):
+            mol_descriptor = df_2.iloc[i]
+            for col in cols:
+                batch_data[i][col] = mol_descriptor[col]
+        new_mol_batch = []
+        num_conformers = 10
+        for i, mol in enumerate(mol_batch):
+            try:
+                new_mol, energy = datamol_generate(mol,
+                                            add_hs=True,
+                                            n_confs=num_conformers,
+                                            energy_iterations=100,
+                                            num_threads=self.num_threads)
+            except Exception as e:
+                print(f"Exception occured: {e}, falling back to 2D coordinates")
+                new_mol = mol
+                AllChem.Compute2DCoords(new_mol)
+                energy = [0] * num_conformers
+
+            new_mol_batch.append(new_mol)
+            energy = np.asarray(energy)
+            conformer_positions_ = np.zeros((num_conformers, Featurizer.MAX_NUM_ATOMS, 3))
+            conformer_positions = [Featurizer.get_atom_poses(mol, conf) for conf in new_mol.GetConformers()]
+            conformer_positions = np.stack(conformer_positions)
+            conformer_positions_[:conformer_positions.shape[0], :conformer_positions.shape[1], :] = np.asarray(conformer_positions)
+            batch_data[i]["conf_pos"] = conformer_positions
+
+        df_3 = datamol.descriptors.batch_compute_many_descriptors(new_mol_batch,
+                                                        properties_fn=descriptor_3d_fn_map,
+                                                        add_properties=False,
+                                                        batch_size=len(new_mol_batch),
+                                                        n_jobs=self.num_threads)              
+        cols = df_3.columns
+        for i in range(len(batch_data)):
+            mol_descriptor = df_3.iloc[i]
+            for col in cols:
+                batch_data[i][col] = mol_descriptor[col]
 
         return batch_data
+	
+    @staticmethod
+    def check_partial_charge(atom):
+        pc = atom.GetDoubleProp('GasteigerCharge')
+        if pc != pc:
+            # unsupported atom, replace nan with 0
+            pc = 0
+        if pc == float('inf'):
+            # max 4 for other atoms, set to 10 here if inf is get
+            pc = 10
+        return pc
+    
+    def atom_to_feature_vector_all(self, atom, ring_list):
+        feat = {
+            "atomic_num": safe_index(Featurizer.atom_vocab_dict["atomic_num"], atom.GetAtomicNum()) + 1,
+            "chiral_tag": safe_index(Featurizer.atom_vocab_dict["chiral_tag"], atom.GetChiralTag()) + 1,
+            "degree": safe_index(Featurizer.atom_vocab_dict["degree"], atom.GetTotalDegree()) + 1,
+            "explicit_valence": safe_index(Featurizer.atom_vocab_dict["explicit_valence"], atom.GetExplicitValence()) + 1,
+            "formal_charge": safe_index(Featurizer.atom_vocab_dict["formal_charge"], atom.GetFormalCharge()) + 1,
+            "hybridization": safe_index(Featurizer.atom_vocab_dict["hybridization"], atom.GetHybridization()) + 1,
+            "implicit_valence": safe_index(Featurizer.atom_vocab_dict["implicit_valence"], atom.GetImplicitValence()) + 1,
+            "is_aromatic": safe_index(Featurizer.atom_vocab_dict["is_aromatic"], int(atom.GetIsAromatic())) + 1,
+            "total_numHs": safe_index(Featurizer.atom_vocab_dict["total_numHs"], atom.GetTotalNumHs()) + 1,
+            'num_radical_e': safe_index(Featurizer.atom_vocab_dict['num_radical_e'], atom.GetNumRadicalElectrons()) + 1,
+            'atom_is_in_ring': safe_index(Featurizer.atom_vocab_dict['atom_is_in_ring'], int(atom.IsInRing())) + 1,
+            'valence_out_shell': safe_index(Featurizer.atom_vocab_dict['valence_out_shell'],
+                                            Featurizer.period_table.GetNOuterElecs(atom.GetAtomicNum())) + 1,
+            'van_der_waals_radis': Featurizer.period_table.GetRvdw(atom.GetAtomicNum()),
+            # 'partial_charge': Featurizer.check_partial_charge(atom),
+            'mass': atom.GetMass() * 0.01,
+             'in_num_ring_with_size3': safe_index(Featurizer.atom_vocab_dict['in_num_ring_with_size3'], ring_list[0]) + 1,
+            'in_num_ring_with_size4': safe_index(Featurizer.atom_vocab_dict['in_num_ring_with_size4'], ring_list[1]) + 1,
+            'in_num_ring_with_size5': safe_index(Featurizer.atom_vocab_dict['in_num_ring_with_size5'], ring_list[2]) + 1,
+            'in_num_ring_with_size6': safe_index(Featurizer.atom_vocab_dict['in_num_ring_with_size6'], ring_list[3]) + 1,
+            'in_num_ring_with_size7': safe_index(Featurizer.atom_vocab_dict['in_num_ring_with_size7'], ring_list[4]) + 1,
+            'in_num_ring_with_size8': safe_index(Featurizer.atom_vocab_dict['in_num_ring_with_size8'], ring_list[5]) + 1,
+        }
+        return feat
 
     def atom_to_feature_vector(self, atom, ring_list: Optional[List] = None):
         feature_names = self.atom_features
@@ -255,10 +338,8 @@ class Featurizer(object):
         return feats
 
     def bond_to_feature_vector(self, bond, name):
-        try:
-            return safe_index(Featurizer.bond_vocab_dict[name], Featurizer.get_bond_value(bond, name))
-        except:
-            return None
+        return safe_index(Featurizer.bond_vocab_dict[name], Featurizer.get_bond_value(bond, name))
+
 
     @staticmethod
     def dihedral_check(mol : Chem.rdchem.Mol) -> bool:
@@ -403,38 +484,6 @@ class Featurizer(object):
             mol = Chem.RemoveHs(mol)
         return list(ids)
 
-    @staticmethod
-    def gen_conformers(mol : Chem.rdchem.Mol, package="rdkit", **kwargs) -> Chem.rdchem.Mol:
-        if package == "rdkit":
-            ids = gen_conformers_rdkit(mol, **kwargs)
-        elif package == "datamol": # - by default will generate all conformers
-            # - https://doc.datamol.io/stable/api/datamol.conformers.html#datamol.conformers._conformers.generate
-            mol = datamol.conformers.generate(mol, **kwargs)
-        return mol
-
-    @staticmethod
-    def get_MMFF_atom_poses(mol, numConfs=None, return_energy=False):
-        """the atoms of mol will be changed in some cases."""
-        try:
-            new_mol = Chem.AddHs(mol)
-            res = AllChem.EmbedMultipleConfs(new_mol, numConfs=numConfs)
-            ### MMFF generates multiple conformations
-            res = AllChem.MMFFOptimizeMoleculeConfs(new_mol)
-            new_mol = Chem.RemoveHs(new_mol)
-            index = np.argmin([x[1] for x in res])
-            energy = res[index][1]
-            conf = new_mol.GetConformer(id=int(index))
-        except:
-            new_mol = mol
-            AllChem.Compute2DCoords(new_mol)
-            energy = 0
-            conf = new_mol.GetConformer()
-
-        atom_poses = Featurizer.get_atom_poses(new_mol, conf)
-        if return_energy:
-            return new_mol, atom_poses, energy
-        else:
-            return new_mol, atom_poses
 
     @staticmethod
     def get_atom_poses(mol, conf):
@@ -446,22 +495,15 @@ class Featurizer(object):
             atom_poses.append([pos.x, pos.y, pos.z])
         return atom_poses
 
-    def get_2d_atom_poses(mol):
-        """get 2d atom poses"""
-        AllChem.Compute2DCoords(mol)
-        conf = mol.GetConformer()
-        atom_poses = Compound3DKit.get_atom_poses(mol, conf)
-        return atom_poses
-
     @staticmethod
     def get_atom_feature_id(atom, name):
-        assert name in CompoundKit.atom_vocab_dict, "%s not found in atom_vocab_dict" % name
-        return safe_index(CompoundKit.atom_vocab_dict[name], CompoundKit.get_atom_value(atom, name))
+        assert name in Featurizer.atom_vocab_dict, "%s not found in atom_vocab_dict" % name
+        return safe_index(Featurizer.atom_vocab_dict[name], Featurizer.get_atom_value(atom, name))
 
     @staticmethod
     def get_atom_feature_size(name):
-        assert name in CompoundKit.atom_vocab_dict, "%s not found in atom_vocab_dict" % name
-        return len(CompoundKit.atom_vocab_dict[name])
+        assert name in Featurizer.atom_vocab_dict, "%s not found in atom_vocab_dict" % name
+        return len(Featurizer.atom_vocab_dict[name])
 
     @staticmethod
     def smiles_to_mol(smiles_string, package="rdkit"):
@@ -516,6 +558,15 @@ class Featurizer(object):
     @staticmethod
     def list_bond_features():
         return list(Featurizer.bond_vocab_dict.keys())
+    
+    @staticmethod
+    def get_daylight_functional_group_counts(mol):
+        """get daylight functional group counts"""
+        fg_counts = []
+        for fg_mol in Featurizer.day_light_fg_mo_list:
+            sub_structs = Chem.Mol.GetSubstructMatches(mol, fg_mol, uniquify=True)
+            fg_counts.append(len(sub_structs))
+        return fg_counts
 
     @staticmethod
     def list_mol_descriptors(filter: str = "") -> list:
@@ -563,7 +614,6 @@ class Featurizer(object):
                 if num_of_ring_at_ringsize > 8:
                     num_of_ring_at_ringsize = 9
                 atom_result.append(num_of_ring_at_ringsize)
-
             ring_list.append(atom_result)
         return ring_list
 
@@ -587,7 +637,7 @@ class Featurizer(object):
         elif name == 'is_aromatic':
             return int(atom.GetIsAromatic())
         elif name == 'mass':
-            return int(atom.GetMass())
+            return int(atom.GetMass()) * 0.01
         elif name == 'total_numHs':
             return atom.GetTotalNumHs()
         elif name == 'num_radical_e':
