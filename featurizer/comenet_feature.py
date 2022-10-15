@@ -8,6 +8,7 @@ from scipy import special as sp
 from scipy.special import binom
 import torch_geometric
 from torch_geometric.nn.models.schnet import GaussianSmearing
+from torch_scatter import scatter, scatter_min
 
 
 def Jn(r, n):
@@ -345,15 +346,16 @@ class torsion_emb(torch.nn.Module):
         out = rbf * sbf
         return out
     
-def get_comenet_feature(data, num_radial=3, num_spherical=2, cutoff=8.0):
+def get_comenet_feature(pos, num_nodes, edges, num_radial=3, num_spherical=2, cutoff=8.0):
     feature1 = torsion_emb(num_radial=num_radial, num_spherical=num_spherical, cutoff=cutoff)
     feature2 = angle_emb(num_radial=num_radial, num_spherical=num_spherical, cutoff=cutoff)
+    
     #  - required material
-    pos = data["pos"]
-    j, i = tuple([e.squeeze() for e in torch.split(g.edge_index, 1, 0)])
-    num_nodes = data["num_nodes"]
-
-    vecs = pos[j] - pos[i]
+    # j, i = tuple([e.squeeze() for e in torch.split(g.edge_index, 1, 0)])
+    # XXX: convert all to numpy to avoid conersion overhead
+    edges = torch.from_numpy(edges)
+    j, i = edges[:, 1], edges[:, 0]
+    vecs = torch.from_numpy(pos[j] - pos[i])
     dist = vecs.norm(dim=-1)
 
     # Calculate distances.
@@ -361,7 +363,7 @@ def get_comenet_feature(data, num_radial=3, num_spherical=2, cutoff=8.0):
     argmin0[argmin0 >= len(i)] = 0
     n0 = j[argmin0]
     add = torch.zeros_like(dist).to(dist.device)
-    add[argmin0] = self.cutoff
+    add[argmin0] = cutoff
     dist1 = dist + add
 
     _, argmin1 = scatter_min(dist1, i, dim_size=num_nodes)
@@ -373,7 +375,7 @@ def get_comenet_feature(data, num_radial=3, num_spherical=2, cutoff=8.0):
     n0_j = i[argmin0_j]
 
     add_j = torch.zeros_like(dist).to(dist.device)
-    add_j[argmin0_j] = self.cutoff
+    add_j[argmin0_j] = cutoff
     dist1_j = dist + add_j
 
     # i[argmin] = range(0, num_nodes)

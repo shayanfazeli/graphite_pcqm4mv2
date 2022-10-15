@@ -169,9 +169,9 @@ class Featurizer(object):
         self.add_comenet_features = add_comenet_features
 
     def smiles_to_graph(self,
-                        smiles: Union[List, str],
+                        smiles,
                         mol_3d: Optional[Union[List[Chem.rdchem.Mol], Chem.rdchem.Mol]]=None):
-        if not isinstance(smiles, list):
+        if isinstance(smiles, str):
             smiles = [smiles]
         if mol_3d is not None:
             if not isinstance(mol_3d, list):
@@ -198,7 +198,7 @@ class Featurizer(object):
                 feat_dict = self.atom_to_feature_vector_all(atom, ring_list[i])
                 for k, v in feat_dict.items():
                     data[k].append(v)
-            
+
             # - edge features
             N = i + 1
             data["num_atoms"] = N
@@ -229,10 +229,6 @@ class Featurizer(object):
                     data[bond_feat_name] += [bond_id] * N
 
             data["edges"] = np.array(data["edges"], np.int64)
-            # - comenet features
-            if self.add_comenet_features and mol_3d is not None:
-                data["pos"] = mol_3d[i].GetPositions()
-                data["comenet_dist_theta_phi"], data["comenet_dist_tau"] = get_comenet_feature(data)
              ### morgan fingerprint
             data['morgan_fp'] = np.array(Featurizer.get_morgan_fingerprint(mol), 'int64')
             data['maccs_fp'] = np.array(Featurizer.get_maccs_fingerprint(mol), 'int64')
@@ -250,7 +246,7 @@ class Featurizer(object):
             for col in cols:
                 batch_data[i][col] = mol_descriptor[col]
         new_mol_batch = []
-        num_conformers = 10
+        num_conformers = 5
         for i, mol in enumerate(mol_batch):
             try:
                 new_mol, energy = datamol_generate(mol,
@@ -269,14 +265,24 @@ class Featurizer(object):
             conformer_positions_ = np.zeros((num_conformers, Featurizer.MAX_NUM_ATOMS, 3))
             conformer_positions = [Featurizer.get_atom_poses(mol, conf) for conf in new_mol.GetConformers()]
             conformer_positions = np.stack(conformer_positions)
-            conformer_positions_[:conformer_positions.shape[0], :conformer_positions.shape[1], :] = np.asarray(conformer_positions)
+            conformer_positions_[:conformer_positions.shape[0], :conformer_positions.shape[1], :] = conformer_positions
             batch_data[i]["conf_pos"] = conformer_positions
+            # - comenet features
+            # edges = batch_data[i]["edges"]
+            # theta_phis, taus = [], []
+            # for j in range(conformer_positions.shape[0]):
+            #     theta_phi, tau  = get_comenet_feature(conformer_positions[j], conformer_positions.shape[1], edges)
+            #     theta_phis.append(theta_phi)
+            #     taus.append(tau)
+            # batch_data[i]["comenet_theta_phis"] = np.stack(theta_phis)
+            # batch_data[i]["comenet_taus"] = np.stack(taus)
+
 
         df_3 = datamol.descriptors.batch_compute_many_descriptors(new_mol_batch,
                                                         properties_fn=descriptor_3d_fn_map,
                                                         add_properties=False,
                                                         batch_size=len(new_mol_batch),
-                                                        n_jobs=self.num_threads)              
+                                                        n_jobs=self.num_threads)
         cols = df_3.columns
         for i in range(len(batch_data)):
             mol_descriptor = df_3.iloc[i]
@@ -284,7 +290,7 @@ class Featurizer(object):
                 batch_data[i][col] = mol_descriptor[col]
 
         return batch_data
-	
+
     @staticmethod
     def check_partial_charge(atom):
         pc = atom.GetDoubleProp('GasteigerCharge')
@@ -295,7 +301,7 @@ class Featurizer(object):
             # max 4 for other atoms, set to 10 here if inf is get
             pc = 10
         return pc
-    
+
     def atom_to_feature_vector_all(self, atom, ring_list):
         feat = {
             "atomic_num": safe_index(Featurizer.atom_vocab_dict["atomic_num"], atom.GetAtomicNum()) + 1,
@@ -558,7 +564,7 @@ class Featurizer(object):
     @staticmethod
     def list_bond_features():
         return list(Featurizer.bond_vocab_dict.keys())
-    
+
     @staticmethod
     def get_daylight_functional_group_counts(mol):
         """get daylight functional group counts"""

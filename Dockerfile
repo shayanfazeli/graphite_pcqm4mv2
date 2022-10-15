@@ -10,6 +10,6 @@ RUN apt-get install libsm6 libxext6 libxrender1  -y
 RUN pip install torch==1.12.1+cu116 -f https://download.pytorch.org/whl/cu116/torch_stable.html
 RUN pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-1.12.0+cu116.html
 
-WORKDIR /graphite
+WORKDIR /pcqm4mv2
 COPY . .
 RUN pip install -r requirements.txt
