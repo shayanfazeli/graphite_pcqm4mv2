@@ -1,8 +1,12 @@
 from typing import Dict, Any, List
+import sys
 import torch
 import torch.nn
 import graphite.cortex.model as model_lib
 import graphite.cortex.optimization.loss as loss_lib
+from graphite.utilities.logging import get_logger
+
+logger = get_logger(__name__)
 
 FINGERPRINT_POS_WEIGHTS = torch.tensor([1.1433, 0.8838, 0.3456, 0.5512, 1.6746, 0.9952, 1.5817, 1.6147, 1.4659,
         0.7606, 0.8977, 1.1196, 1.2970, 0.8610, 0.8582, 0.9803, 1.2453, 0.6388,
@@ -129,8 +133,10 @@ class RegressorWithKPGTRegularization(torch.nn.Module):
         loss_kpgt = self.kpgt_fingerprint_loss_coeff * kpgt_loss_fp + self.kpgt_descriptor_loss_coeff * kpgt_loss_desc
 
         if torch.isnan(loss+loss_kpgt).item():
-            import pdb
-            pdb.set_trace()
+            logger.error("nan loss encountered!\n\n\n\n")
+            sys.exit(0)
+            # import pdb
+            # pdb.set_trace()
 
         return loss + loss_kpgt, dict(
             latent_reps=latent_reps,

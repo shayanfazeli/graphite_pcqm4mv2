@@ -9,11 +9,9 @@ torchrun \
 ./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/${1}.py \
 --seed=2022 \
 --name="${1}" \
---project="graphite_grpe_advanced" \
+--project="graphite_grpe_docker" \
 --gpu=0 \
---logdir="/data/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_advanced" \
---resume \
---id="1d9hm5g8"
+--logdir="/data/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_docker"
 #--clean \
 #--wandb_offline \
 #--wandb_apikey="382ea80a0befa8bf3f3616bc9d9b99fc46ee43bf"

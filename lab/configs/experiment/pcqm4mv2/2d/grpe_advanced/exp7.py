@@ -12,7 +12,7 @@ __number_of_processes = 4  # this is not directly used, the caller has to make s
 __number_of_training_items = 3378606
 
 # - critical hyperparameters
-__learning_rate = 3e-3
+__learning_rate = 5e-4
 __weight_decay = 1e-3
 __batch_size = 300
 __warmup_epochs = 1
