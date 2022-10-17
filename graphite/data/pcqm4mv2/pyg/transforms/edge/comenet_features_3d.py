@@ -24,7 +24,7 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
             num_spherical=2,
             edge_index_key: str = 'edge_index',
             concatenate_with_edge_attr: bool = False,
-            fill_na: float = None
+            fill_na: float = 0.0
     ):
         """constructor"""
         super(ComenetEdgeFeatures, self).__init__()
@@ -33,7 +33,7 @@ class ComenetEdgeFeatures(BasePygGraphitePCQM4MTransform):
         self.feature2 = angle_emb(num_radial=num_radial, num_spherical=num_spherical, cutoff=cutoff)
         self.edge_index_key = edge_index_key
         self.concatenate_with_edge_attr = concatenate_with_edge_attr
-        self.fill_na = 0.0
+        self.fill_na = fill_na
 
     def forward(self, g: Data) -> Data:
         """
