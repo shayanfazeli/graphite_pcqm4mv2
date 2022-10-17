@@ -10,6 +10,7 @@ from torch_geometric.data import Data, Batch
 from torch_geometric.utils import degree
 from torch_geometric.nn import MessagePassing
 from .modified_ogb import AtomEncoder, BondEncoder
+from graphite.cortex.model.model.mlp import CustomMLPHead
 
 
 class ScaleLayer(nn.Module):
@@ -118,12 +119,11 @@ class ConvMessage(MessagePassing):
             hop: int,
             kernel: int,
             scale_init: float = 0.1,
-            pos_features: int = None
+            pos_features: int = None,
     ):
         super().__init__(aggr="add")
         self.width = width
         self.hop = hop
-
         self.bond_encoder = nn.ModuleList()
         self.mlp = nn.ModuleList()
         if pos_features is not None:
@@ -133,10 +133,19 @@ class ConvMessage(MessagePassing):
         for _ in range(hop * kernel):
             self.bond_encoder.append(BondEncoder(emb_dim=width))
             if pos_features is not None:
-                self.pos_encoder.append(torch.nn.Sequential(
-                    torch.nn.Linear(pos_features, width),
-                    torch.nn.LayerNorm(width),
-                ))
+                self.pos_encoder.append(
+                    CustomMLPHead(
+                        input_dim=pos_features,
+                        output_dim=width,
+                        input_norm='BatchNorm1d',
+                        num_hidden_layers=2,
+                        hidden_dim=width//width_head,
+                        activation='ReLU',
+                        norm='LayerNorm',
+                        output_norm='LayerNorm',
+                        dropout=0.2
+                    )
+                )
             self.mlp.append(GatedLinearBlock(width, width_head, width_scale))
             self.scale.append(ScaleDegreeLayer(width, scale_init))
 
@@ -149,7 +158,9 @@ class ConvMessage(MessagePassing):
             if self.pos_features is None:
                 ea = self.bond_encoder[layer](edge_attr[:, :3].long())
             else:
-                ea = self.bond_encoder[layer](edge_attr[:, :3].long()) + self.pos_encoder[layer](edge_attr[:, 3:])
+                pos_mask = torch.any(edge_attr[:, 3:], dim=1, keepdim=True)
+                ea = self.bond_encoder[layer](edge_attr[:, :3].long()) + pos_mask * self.pos_encoder[layer](edge_attr[:, 3:])
+
             x_raw = self.propagate(edge_index, x=x_raw, edge_attr=ea, layer=layer)
             x_out = x_out + self.scale[layer](x_raw, node_degree)
         return x_out
@@ -269,12 +280,24 @@ class LineGraphNodeRepresentation(nn.Module):
             GatedLinearBlock(width, width_head, width_scale))
 
         self.pos_features = pos_features
-        pos_offset = 0 if pos_features is None else pos_features
+
+        if pos_features is not None:
+            self.pos_encoder = CustomMLPHead(
+                input_dim=pos_features,
+                input_norm='BatchNorm1d',
+                norm='LayerNorm',
+                activation='ReLU',
+                hidden_dim=width // width_head,
+                num_hidden_layers=2,
+                dropout=0.2,
+                output_dim=width,
+                output_norm='LayerNorm'
+            )
 
         self.condenser = nn.Sequential(
-            nn.BatchNorm1d(2 * width + pos_offset),
+            nn.BatchNorm1d(2 * width),
             nn.ReLU(),
-            nn.Linear(2 * width + pos_offset, width),
+            nn.Linear(2 * width, width),
             nn.LayerNorm(width)
         )
 
@@ -285,11 +308,13 @@ class LineGraphNodeRepresentation(nn.Module):
             bond_feats, atom1_feats, atom2_feats = torch.split(x, [3, 9, 9], 1)
         atom_feats = self.atom_encoder(atom1_feats.long()) + self.atom_encoder(atom2_feats.long())
         bond_feats = self.bond_encoder(bond_feats.long())
+        condensed_reps = self.condenser(torch.cat((atom_feats, bond_feats), dim=1))
 
         if self.pos_features is not None:
-            return self.condenser(torch.cat((atom_feats, bond_feats, pos_feats), dim=1))
-        else:
-            return self.condenser(torch.cat((atom_feats, bond_feats), dim=1))
+            pos_mask = torch.any(pos_feats, dim=1, keepdim=True)
+            condensed_reps = condensed_reps + pos_mask * self.pos_encoder(pos_feats)
+
+        return condensed_reps
 
 
 class CoAtGIN(pt.nn.Module):

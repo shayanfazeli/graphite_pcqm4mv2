@@ -12,4 +12,5 @@ torchrun \
 --project="graphite_grpe_docker" \
 --gpu=0 \
 --logdir="/data/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_docker"
---clean
+--id="${2}" \
+--resume

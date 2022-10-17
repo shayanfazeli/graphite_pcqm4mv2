@@ -5,12 +5,6 @@
 * [Datasets and Transforms](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/graphite/data/pcqm4mv2/pyg)
 
 ## In Progress Experiments
-
-* CoATGIN_base (10m) on 3dbond + KPGT Losses
-```bash
-./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_kpgt # lambda5
-```
-
 * GRPE Large + toeplitz attention fix + KPGT losses with smaller weight than `exp7`
 ```bash
 ./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp8  # lambda4
@@ -18,13 +12,13 @@
 
 * CoATGIN_base (10m) on 3dbond
 ```bash
-./lab/configs/experiment/pcqm4mv2/3d/coatgin/resume_run.sh 3d_bond fxv29zmh # lambda3
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_exp1 # lambda3
 ```
 
-
-
-
-
+* CoATGIN_base (10m) on 3dbond + KPGT Losses
+```bash
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_kpgt_exp1 # lambda5
+```
 
 
 ## Additional Resources
