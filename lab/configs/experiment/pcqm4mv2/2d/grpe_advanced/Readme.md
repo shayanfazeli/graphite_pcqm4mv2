@@ -1,9 +1,18 @@
+# Experiments
+__Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
+
+## In progress...
+### `exp7`
+* base: GRPE Large
+* Added Graphormer path encoding, node encoding, and toeplitz corrections
+* Modified learning schedule: larger learning rate and shorter sequence
+* Observations:
+  * So far on 60 epochs, validation mae is 0.090 and train on 0.054, so indication of an overfit.
+  * Letting it finish another 40 epochs to see what happens.
 
 
-
-__Project__: `graphite_grpe_advanced`
-
-## `exp5`
+## Previously...
+### `exp5`
 * base: `exp1`
 * Main Hyerparameters:
   * longer  training sequence  (400 epochs)
@@ -31,9 +40,10 @@ scheduler = dict(
 )
 ```
 * Observations:
-  * 
+  * Overfit ~> validation came down to ~0.890 and then went up.
+  * However, we did not let the training complete (it was scheduled for 400 epochs with decreasing LR, killed at 100)
 
-## `exp6`
+### `exp6`
 At the core, the same main set of hyperparameters are used again:
 ```python
 __batch_size = 256
@@ -51,15 +61,10 @@ __path_encoding_code_dim = 4
 __encode_node_degree_centrality = True
 ```
 * Observations:
-  * 
+  * Overfit ~> validation came down to ~0.890 and then went up.
+  * However, we did not let the training complete (it was scheduled for 400 epochs with decreasing LR, killed at 100)
 
-
-
-
-
-# Previously...
-
-## `exp1`
+### `exp1`
 * Model: *GRPE Large + Node degree centrality + Path encoding*
 * Main Hyperparameters:
 ```python
@@ -82,7 +87,7 @@ __encode_node_degree_centrality = True
 
 
 
-## `exp2`
+### `exp2`
 
 * Main Hyerparameters:
   * base: `exp1`
@@ -109,7 +114,7 @@ scheduler = dict(
 * Results
   * Loss quickly became `NaN`
 
-## `exp3`
+### `exp3`
 * base: `exp1`
 * Main Hyerparameters:
   * shorter paths covered and lower path encoding dim
@@ -134,7 +139,7 @@ __encode_node_degree_centrality = True
   * The training MAE seems to be increasing
   * NaN loss
 
-## `exp4`
+### `exp4`
 * base: `exp1`
 * Main Hyerparameters:
   * no path encoding
