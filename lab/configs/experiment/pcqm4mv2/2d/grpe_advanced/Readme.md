@@ -1,6 +1,7 @@
 # Experiments
 __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
 
+
 ## In progress...
 ### `exp7`
 * base: GRPE Large
@@ -10,6 +11,17 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
   * So far on 60 epochs, validation mae is 0.090 and train on 0.054, so indication of an overfit.
   * Letting it finish another 40 epochs to see what happens.
 
+## To run:
+### `exp8`
+* base: GRPE Large
+* Added toeplitz correction
+* No node-degree centrality encoding / no path encoding
+* Smaller weight to KPGT loss (`1e-2`)
+* larger weight decay (`5e-3`)
+* Modified learning schedule: larger learning rate and shorter sequence
+* Cosine annealing instead of polynomialLR
+* Observations:
+  * 
 
 ## Previously...
 ### `exp5`

@@ -1,5 +1,5 @@
 """
-Exp7
+Exp8
 """
 
 _base_ = [
@@ -13,37 +13,36 @@ __number_of_training_items = 3378606
 
 # - critical hyperparameters
 __learning_rate = 5e-4
-__weight_decay = 1e-3
+__weight_decay = 5e-3
 __batch_size = 300
 __warmup_epochs = 1
 __max_epochs = 100
-__shortest_path_length_type_upperbound = 5  # for the shortest-path-type (discrete) to be embedded
-__shortest_path_length_upperbound = 5  # for graphormer-like path embedding
+__shortest_path_length_type_upperbound = 20  # for the shortest-path-type (discrete) to be embedded
+# __shortest_path_length_upperbound = 5  # for graphormer-like path embedding
 
 __attention_biases = [
                     'edge',
                     'shortest_path_length',
-                    'shortest_path'
+                    # 'shortest_path'
                 ]
 __path_encoding_code_dim = 4
-__encode_node_degree_centrality = True
+__encode_node_degree_centrality = False
 
 data = dict(
     args=dict(
         batch_size=__batch_size,
         transform_configs=[
-            dict(
-                type='EncodeNode2NodeShortestPathFeatureTrajectory',
-                args=dict(
-                    max_length_considered=__shortest_path_length_upperbound, feature_position_offset=4
-                )
-            ),
+            # dict(
+            #     type='EncodeNode2NodeShortestPathFeatureTrajectory',
+            #     args=dict(
+            #         max_length_considered=__shortest_path_length_upperbound, feature_position_offset=4
+            #     )
+            # ),
             dict(type='EncodeNodeType'),
-            dict(type='EncodeNodeDegreeCentrality'),
+            # dict(type='EncodeNodeDegreeCentrality'),
             dict(type='AddTaskNode'),
             dict(type='EncodeEdgeType'),
             dict(type='EncodeNode2NodeConnectionType'),
-            dict(type='EncodeNode2NodeShortestPathLengthType'),
             dict(type='EncodeNode2NodeShortestPathLengthType', args=dict(max_length_considered=__shortest_path_length_type_upperbound))
         ],
     )
@@ -56,8 +55,8 @@ model = dict(
             args=dict(
                 shortest_path_length_upperbound=__shortest_path_length_type_upperbound,
                 attention_biases=__attention_biases,
-                path_encoding_length_upperbound=__shortest_path_length_upperbound,
-                path_encoding_code_dim=__path_encoding_code_dim,
+                # path_encoding_length_upperbound=__shortest_path_length_upperbound,
+                # path_encoding_code_dim=__path_encoding_code_dim,
                 encode_node_degree_centrality=__encode_node_degree_centrality,
                 toeplitz=True
             )
@@ -68,12 +67,12 @@ model = dict(
         ),
         kpgt_loss_config=dict(
             fingerprint=dict(
-                factor=1e-1,
+                factor=1e-2,
                 type='BCEWithLogitsLoss',
                 args=dict()
             ),
             descriptor=dict(
-                factor=5e-2,
+                factor=1e-2,
                 type='L1Loss',
                 args=dict()
             )
@@ -90,13 +89,11 @@ optimizer = dict(
 )
 
 scheduler = dict(
-    type='PolynomialDecayLR',
+    type='CosineAnnealingLR',
     args=dict(
-        warmup_updates=__warmup_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
-        tot_updates=__max_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
+        T_max=__max_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
         lr=__learning_rate,
-        end_lr=1e-9,
-        power=1.0
+        eta_min=1e-14,
     ),
     interval='step'
 )
@@ -179,7 +176,7 @@ trainer = dict(
     args=dict(
         modes=['train', 'valid'],
         max_epochs=__max_epochs,
-        validation_interval=5,
+        validation_interval=1,
         metric_monitor=dict(
             mode='valid',
             metric='mae',
