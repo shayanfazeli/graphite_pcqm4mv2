@@ -15,9 +15,8 @@ __number_of_training_items = 3378606
 __learning_rate = 5e-4
 __weight_decay = 5e-3
 __batch_size = 300
-__warmup_epochs = 1
 __max_epochs = 100
-__shortest_path_length_type_upperbound = 20  # for the shortest-path-type (discrete) to be embedded
+__shortest_path_length_type_upperbound = 10  # for the shortest-path-type (discrete) to be embedded
 # __shortest_path_length_upperbound = 5  # for graphormer-like path embedding
 
 __attention_biases = [
@@ -92,7 +91,6 @@ scheduler = dict(
     type='CosineAnnealingLR',
     args=dict(
         T_max=__max_epochs * ((__number_of_training_items // __batch_size) // __number_of_processes),
-        lr=__learning_rate,
         eta_min=1e-14,
     ),
     interval='step'

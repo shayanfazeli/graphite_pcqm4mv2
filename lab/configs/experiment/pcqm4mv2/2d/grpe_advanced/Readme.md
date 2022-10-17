@@ -3,6 +3,23 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
 
 
 ## In progress...
+### `exp8`
+* Number of parameters: 116,753,929
+* base: GRPE Large
+* Added toeplitz correction
+* Upperbounding shortest path length type to `10` instead of `5`.
+* No node-degree centrality encoding / no path encoding
+* Smaller weight to KPGT loss (`1e-2`)
+* larger weight decay (`5e-3`)
+* Modified learning schedule: larger learning rate and shorter sequence
+* Cosine annealing instead of polynomialLR
+* Observations:
+
+
+## To run:
+
+
+## Previously...
 ### `exp7`
 * base: GRPE Large
 * Added Graphormer path encoding, node encoding, and toeplitz corrections
@@ -12,19 +29,7 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
   * Letting it finish another 40 epochs to see what happens.
 * WandB Report: [[Link](https://wandb.ai/shayanfazeli/graphite_grpe_docker/reports/GRPE-Large-Graphormer-KPGT-Loss-for-Regularization--VmlldzoyODA3MTc1?accessToken=2vpp89vx63wevtily23b9xcmu5bcqw29rlx5n946nuc0vzbpepevbi36hvy7rca0)]
 
-## To run:
-### `exp8`
-* base: GRPE Large
-* Added toeplitz correction
-* No node-degree centrality encoding / no path encoding
-* Smaller weight to KPGT loss (`1e-2`)
-* larger weight decay (`5e-3`)
-* Modified learning schedule: larger learning rate and shorter sequence
-* Cosine annealing instead of polynomialLR
-* Observations:
-  * 
 
-## Previously...
 ### `exp5`
 * base: `exp1`
 * Main Hyerparameters:

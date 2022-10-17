@@ -11,15 +11,18 @@
 ./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_kpgt # lambda5
 ```
 
-* GRPE Large + Path encoding + node degree encoding + toeplitz attention fix + KPGT losses
+* GRPE Large + toeplitz attention fix + KPGT losses with smaller weight than `exp7`
 ```bash
-./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp7  # lambda4
+./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp8  # lambda4
 ```
 
 * CoATGIN_base (10m) on 3dbond
 ```bash
 ./lab/configs/experiment/pcqm4mv2/3d/coatgin/resume_run.sh 3d_bond fxv29zmh # lambda3
 ```
+
+
+
 
 
 
