@@ -10,6 +10,7 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
 * Observations:
   * So far on 60 epochs, validation mae is 0.090 and train on 0.054, so indication of an overfit.
   * Letting it finish another 40 epochs to see what happens.
+* WandB Report: [[Link](https://wandb.ai/shayanfazeli/graphite_grpe_docker/reports/GRPE-Large-Graphormer-KPGT-Loss-for-Regularization--VmlldzoyODA3MTc1?accessToken=2vpp89vx63wevtily23b9xcmu5bcqw29rlx5n946nuc0vzbpepevbi36hvy7rca0)]
 
 ## To run:
 ### `exp8`
@@ -54,6 +55,7 @@ scheduler = dict(
 * Observations:
   * Overfit ~> validation came down to ~0.890 and then went up.
   * However, we did not let the training complete (it was scheduled for 400 epochs with decreasing LR, killed at 100)
+* WandB Report: [Link](https://wandb.ai/shayanfazeli/graphite_grpe_advanced/reports/GRPE-Large-Graphormer--VmlldzoyODA3MTQw?accessToken=phumvh8o8n8qlqbyjnsb83ifoi7h707a3flys8osrk2u2jy50bo10zogcrauzlyz)
 
 ### `exp6`
 At the core, the same main set of hyperparameters are used again:
@@ -75,6 +77,7 @@ __encode_node_degree_centrality = True
 * Observations:
   * Overfit ~> validation came down to ~0.890 and then went up.
   * However, we did not let the training complete (it was scheduled for 400 epochs with decreasing LR, killed at 100)
+* WandB Report: [Link](https://wandb.ai/shayanfazeli/graphite_grpe_advanced/reports/GRPE-Large-Graphormer--VmlldzoyODA3MTQw?accessToken=phumvh8o8n8qlqbyjnsb83ifoi7h707a3flys8osrk2u2jy50bo10zogcrauzlyz)
 
 ### `exp1`
 * Model: *GRPE Large + Node degree centrality + Path encoding*
