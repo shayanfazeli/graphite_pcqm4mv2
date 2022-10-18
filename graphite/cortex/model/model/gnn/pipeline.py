@@ -59,8 +59,12 @@ class CoAtGINGeneralPipeline(torch.nn.Module):
 
         self.norm = torch.nn.GroupNorm(1, self.model_dim, affine=False)
 
-    def forward(self, batched_data):
-        h = self.gnn_node(batched_data)
-        h = self.pool(h, batched_data.batch)
+    def forward(self, batched_data, return_node_reps: bool = False):
+        h_nodes = self.gnn_node(batched_data)  # - batched node counts
+        h = self.pool(h_nodes, batched_data.batch)
         h = self.norm(h)
-        return h
+
+        if return_node_reps:
+            return h, h_nodes
+        else:
+            return h

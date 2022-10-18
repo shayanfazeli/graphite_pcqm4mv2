@@ -195,6 +195,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
     def forward(
             self,
             batch: Dict[str, Any],
+            return_node_reps: bool = False
     ) -> torch.Tensor:
         """
         Parameters
@@ -278,4 +279,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
         graph_reps = torch.gather(node_features, 1,
                                   last_node_indices.unsqueeze(-1).unsqueeze(-1).repeat(1, 1, self.model_dim)).squeeze(1)
 
-        return graph_reps
+        if return_node_reps:
+            return graph_reps, node_features
+        else:
+            return graph_reps
