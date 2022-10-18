@@ -1,4 +1,5 @@
 import torch
+import numpy
 from graphite.data.pcqm4mv2.pyg import PCQM4Mv2DatasetFull
 from graphite.utilities.logging import get_logger
 
@@ -24,4 +25,10 @@ class MultiviewPCQM4Mv2Dataset(PCQM4Mv2DatasetFull):
                                       "not be None and must be capable of generating non-semantic-altering views."
 
     def __getitem__(self, idx):
-        return [super().__getitem__(idx) for _ in range(self.num_views)]
+        if (isinstance(idx, (int, numpy.integer))
+                or (isinstance(idx, torch.Tensor) and idx.dim() == 0)
+                or (isinstance(idx, numpy.ndarray) and numpy.isscalar(idx))):
+            return [super(MultiviewPCQM4Mv2Dataset, self).__getitem__(idx) for _ in range(self.num_views)]
+        else:
+            return self.index_select(idx)
+
