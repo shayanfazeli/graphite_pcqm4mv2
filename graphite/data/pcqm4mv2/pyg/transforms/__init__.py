@@ -4,7 +4,8 @@ from .node import AddTaskNode, \
     EncodeNode2NodeShortestPathFeatureTrajectory, \
     EncodeNodeType, \
     EncodeNodeDegreeCentrality, \
-    PairwiseDistances
+    PairwiseDistances, \
+    Position3DGaussianNoise
 from .edge import EncodeEdgeType, \
     ComenetEdgeFeatures, \
     RadiusGraphEdges

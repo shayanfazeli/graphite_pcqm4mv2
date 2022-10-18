@@ -5,3 +5,4 @@ from .node2node_shortest_path_encoding import EncodeNode2NodeShortestPathFeature
 from .node2node_shortest_path_length_type_encoding import EncodeNode2NodeShortestPathLengthType
 from .node_degree_centrality_encoding import EncodeNodeDegreeCentrality
 from .pairwise_distances import PairwiseDistances
+from .position_3d_noise import Position3DGaussianNoise
