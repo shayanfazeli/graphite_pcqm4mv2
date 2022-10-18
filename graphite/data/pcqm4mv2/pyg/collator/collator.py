@@ -11,7 +11,7 @@ default_collate_fn = Collater([], [
     'shortest_path_feature_trajectory',
     'molecule_fingerprint',
     'molecule_descriptor',
-    'positions_3d',
+    # 'positions_3d',
     'comenet_features1',
     'comenet_features2',
     'pairwise_distances'

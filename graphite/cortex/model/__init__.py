@@ -5,4 +5,8 @@ from .model import GraphRelativePositionalEncodingNetwork, \
     CustomMLPHead
 
 # - methods
-from .method import Regressor, RegressorWithKPGTRegularization
+from .method import Regressor, RegressorWithKPGTRegularization, \
+    SingleModelSingleViewPretrainingWithPretexts, SingleModelMultiViewPretrainingWithPretexts
+
+# - pretexts
+from .pretext import SE3DDMPretext, BasePretextModule
