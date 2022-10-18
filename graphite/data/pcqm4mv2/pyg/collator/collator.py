@@ -13,7 +13,8 @@ default_collate_fn = Collater([], [
     'molecule_descriptor',
     'positions_3d',
     'comenet_features1',
-    'comenet_features2'
+    'comenet_features2',
+    'pairwise_distances'
 ])  # ([dataset_transformed[i] for i in [1,2,3]])
 
 
@@ -100,6 +101,11 @@ def collate_fn(batch):
         output['node_degree_centrality'] = pad_sequence([g['node_type'] for g in batch], pad_dim=0, pad_value=-1, stack_dim=0, max_len=max_node_count)[
             0].long()
 
+    if 'pairwise_distances' in batch[0]:
+        output['pairwise_distances'] = pad_sequence_2d(
+            [g['pairwise_distances'] for g in batch], pad_value=-1, stack_dim=0, max_len=max_node_count
+        )
+
     for k in output:
         if isinstance(k, torch.Tensor):
             assert not torch.any(torch.isnan(output[k])).item()
@@ -111,9 +117,32 @@ def default_collate_fn_with_kpgt(batch):
     fingerprint = torch.stack([g.fingerprint for g in batch])
     molecule_descriptor = torch.stack([g.molecule_descriptor for g in batch])
 
+    if 'pairwise_distances' in batch[0]:
+        pairwise_distances = pad_sequence_2d(
+            [g['pairwise_distances'] for g in batch],
+            pad_value=-1,
+            stack_dim=0,
+            max_len=max([g.num_nodes for g in batch])
+        )
+        for i in range(len(batch)):
+            del batch[i].pairwise_distances
+
     g = default_collate_fn(batch)
     del g.fingerprint
     del g.molecule_descriptor
+    del g.pairwise_distances
+
     g.molecule_fingerprint = fingerprint.float()
     g.molecule_descriptor = torch.nan_to_num(molecule_descriptor[:, 1:], nan=0).float()
+    if 'pairwise_distances' in batch[0]:
+        g.pairwise_distances = pairwise_distances
+    g.node_counts = torch.tensor([g[i].num_nodes for i in range(len(g))])
     return g
+
+
+def default_multiview_collate_fn(batch):
+    return [default_collate_fn(list(e)) for e in list(zip(*batch))]
+
+
+def default_multiview_collate_fn_with_kpgt(batch):
+    return [default_collate_fn_with_kpgt(list(e)) for e in list(zip(*batch))]

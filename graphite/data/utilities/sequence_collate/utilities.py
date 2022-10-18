@@ -42,3 +42,17 @@ def pad_sequence_2d(elements: List[torch.Tensor], pad_dims: Tuple[int, int] = (0
 
     seq_len = torch.tensor([e.shape[pad_dims[0]] for e in elements]).long().to(device)
     return output, seq_len
+
+
+def get_pad_sequence_from_batched_reps(
+        reps: torch.Tensor,
+        batch_ptr: torch.LongTensor
+):
+    counts = batch_ptr.diff().tolist()
+    return pad_sequence(
+        elements=torch.split(reps, split_size_or_sections=counts, dim=0),
+        pad_dim=0,
+        stack_dim=0,
+        max_len=max(counts),
+        pad_value=-1
+    )[0]
