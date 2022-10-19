@@ -52,6 +52,7 @@ class SE3DDMPretext(BasePretextModule):
                 )
             ),
             beta: float = 1.0,
+            mode: str = 'with_distances',
             *args,
             **kwargs):
         """constructor"""
@@ -62,8 +63,9 @@ class SE3DDMPretext(BasePretextModule):
         self.distance = getattr(distance_lib, distance_config['type'])(**distance_config['args'])
         self.mse = torch.nn.MSELoss()
         self.beta = beta
+        self.mode = mode
 
-    def prepare_pretext_inputs(
+    def prepare_pretext_inputs_with_positions(
             self,
             batch: List[Any],
             graph_reps: List[torch.Tensor],
@@ -95,7 +97,48 @@ class SE3DDMPretext(BasePretextModule):
 
         return inputs_dict
 
-    def compute_pretext_loss(
+    def prepare_pretext_inputs_with_distances(
+            self,
+            batch: List[Any],
+            graph_reps: List[torch.Tensor],
+            node_reps: List[torch.Tensor],
+            outputs: Dict[str, Any]
+    ):
+        """preparing inputs"""
+        assert len(batch) == len(graph_reps) == len(node_reps) == 2, "SE(3) DDM Pretext is only supported for 2-view training."
+
+        inputs_dict = dict()
+        if isinstance(batch[0], Batch):
+            for i in [0, 1]:
+                inputs_dict[f'node_reps_{i+1}'] = get_pad_sequence_from_batched_reps(
+                    reps=node_reps[i],
+                    batch_ptr=batch[i].ptr
+                )
+                inputs_dict[f'd{i+1}'] = batch[i].pairwise_distances
+            inputs_dict['node_counts'] = batch[0].node_counts
+        elif isinstance(batch[0], Dict):
+            for i in [0, 1]:
+                inputs_dict[f'node_reps_{i+1}'] = node_reps[i]
+                inputs_dict[f'd{i+1}'] = batch[i]['pairwise_distances']
+            inputs_dict['node_counts'] = batch[0]['node_counts'] - 1
+        else:
+            raise Exception(f"Unknown batch type: {type(batch)}")
+
+        return inputs_dict
+
+    def prepare_pretext_inputs(
+            self,
+            *args,
+            **kwargs
+    ):
+        if self.mode == 'with_distances':
+            return self.prepare_pretext_inputs_with_distances(*args, **kwargs)
+        elif self.mode == 'with_positions':
+            return self.prepare_pretext_inputs_with_positions(*args, **kwargs)
+        else:
+            raise Exception(f"Unknown mode for se3ddm pretext: mode={self.mode}")
+
+    def compute_pretext_loss_with_positions(
             self,
             node_reps_1: torch.Tensor,
             positions_3d_1: torch.Tensor,
@@ -153,6 +196,69 @@ class SE3DDMPretext(BasePretextModule):
         loss = loss.mean()
 
         return loss
+
+    def compute_pretext_loss_with_distances(
+            self,
+            node_reps_1: torch.Tensor,
+            d1: torch.Tensor,
+            node_reps_2: torch.Tensor,
+            d2: torch.Tensor,
+            node_counts: torch.LongTensor
+    ):
+        """
+        Parameters
+        ----------
+        node_reps_1: `torch.Tensor`, required
+            The computed latent node representations of `dim=(batch_size, max_num_node, model_dim)`
+
+        d1: `torch.Tensor`, required
+            The pair-wise distances `dim=(batch_size, max_num_node, max_num_node)`
+
+        node_reps_2: `torch.Tensor`, required
+            The computed latent node representations of `dim=(batch_size, max_num_node, model_dim)`
+
+        d2: `torch.Tensor`, required
+            The pair-wise distances `dim=(batch_size, max_num_node, max_num_node)`
+
+        node_counts: `torch.LongTensor`, required
+            The node counts for each molecule in the batch
+
+        Returns
+        ----------
+        `torch.Tensor`:
+            Output scores of `dim=batch_size, max_num+node, max_num_node`
+        """
+        # - sanity checks
+        assert isinstance(node_counts, torch.Tensor)
+        assert node_counts.ndim == 1
+
+        d1_tilde = d1 + self.scale * torch.randn(d1.size(), device=d1.device)
+        d2_tilde = d2 + self.scale * torch.randn(d2.size(), device=d2.device)
+
+        # - computing scores
+        s12 = self.score(pairwise_distance=d1_tilde, node_reps=node_reps_2)
+        s21 = self.score(pairwise_distance=d2_tilde, node_reps=node_reps_1)
+
+        # - computing the mask
+        mask = get_2d_masks_from_sequence_lengths(node_counts, max_len=node_counts.max().item()).to(node_reps_1.device)
+        term_1 = (self.scale ** self.beta) * ((s12 / self.scale) - ((d1 - d1_tilde) / (self.scale ** 2)))
+        term_2 = (self.scale ** self.beta) * ((s21 / self.scale) - ((d2 - d2_tilde) / (self.scale ** 2)))
+
+        term_1 = term_1 * mask
+        term_2 = term_2 * mask
+
+        loss = torch.linalg.norm(term_1.flatten(1), ord=2, dim=1) + torch.linalg.norm(term_2.flatten(1), ord=2, dim=1)
+        loss = loss.mean()
+
+        return loss
+
+    def compute_pretext_loss(self, *args, **kwargs):
+        if self.mode == 'with_distances':
+            return self.compute_pretext_loss_with_distances(*args, **kwargs)
+        elif self.mode == 'with_positions':
+            return self.compute_pretext_loss_with_positions(*args, **kwargs)
+        else:
+            raise Exception("Unknown mode for se3ddm pretext")
 
     def update_outputs(self, outputs, loss, **kwargs):
         outputs['loss_se3ddm_pretext'] = loss.item()

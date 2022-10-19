@@ -8,4 +8,6 @@ python3 ./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/3d/co
 --project="graphite_coatgin_docker" \
 --gpu=${2} \
 --logdir="/data/pcqm4mv2_datahub/warehouse/graphite/pcqm4mv2/3d/" \
---clean
+--clean \
+--wandb_offline \
+--wandb_apikey="debug"

@@ -31,6 +31,8 @@ def move_batch_to_device(batch, device):
                 batch[k] = {k2: move_batch_to_device(v) for k2, v in batch[k].items()}
             else:
                 raise Exception(f"unsupported batch element")
+    elif isinstance(batch, List):
+        return [move_batch_to_device(batch=e, device=device) for e in batch]
     else:
         raise Exception(f"unrecognized batch type: {type(batch)}")
 

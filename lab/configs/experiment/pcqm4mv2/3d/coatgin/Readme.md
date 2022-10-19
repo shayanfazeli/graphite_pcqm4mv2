@@ -19,13 +19,17 @@ self.pos_encoder.append(
     )
 )
 ```
-
 and masking all zero comenet features, and formulating the impact in an additive fashion (like Transformer-M)
 ```python
 pos_mask = torch.any(edge_attr[:, 3:], dim=1, keepdim=True)
 ea = self.bond_encoder[layer](edge_attr[:, :3].long()) + pos_mask * self.pos_encoder[layer](edge_attr[:, 3:])
 
 ```
+
+### Exp 2
+* number of parameters:
+* This experiment is leveraging the contrastive denoising objective of [this article](https://arxiv.org/pdf/2206.13602.pdf).
+
 
 ## Experiment Group: `3d_bond_kpgt`
 ### Exp 1

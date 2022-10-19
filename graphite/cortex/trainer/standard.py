@@ -13,6 +13,7 @@ import torch.distributed
 import torch.nn
 import torchmetrics
 from graphite.cortex.trainer.base import TrainerBase
+from graphite.utilities.device import move_batch_to_device
 from graphite.utilities.distributed.utilities import prepare_model_for_ddp_if_requested, sync_batchnorms
 from graphite.utilities.logging import get_logger, log_message
 from graphite.utilities.logging.logger import grad_stats
@@ -156,7 +157,7 @@ class Trainer(TrainerBase):
             if self.limit_batch_count is not None:
                 if batch_index > self.limit_batch_count:
                     break
-            batch_loss_value = self.train_step_and_handle_mixed_precision(mode=mode, batch_index=batch_index, batch_data=self.move_batch_to_device(batch_data))
+            batch_loss_value = self.train_step_and_handle_mixed_precision(mode=mode, batch_index=batch_index, batch_data=move_batch_to_device(batch_data, device=self.device))
             dataloader_tqdm.set_description(f'batch_loss: {batch_loss_value:.2f}')
             dataloader_tqdm.refresh()
         return self.monitor_metrics(epoch_index=epoch_index, mode=mode)
@@ -227,24 +228,6 @@ class Trainer(TrainerBase):
 
         return loss.item()
 
-    def move_batch_to_device(self, batch):
-        if isinstance(batch, Batch):
-            batch = batch.to(self.device)
-        elif isinstance(batch, Dict):
-            for k in batch:
-                if isinstance(batch[k], torch.Tensor) or isinstance(batch[k], Batch) or isinstance(batch[k], Data):
-                    batch[k] = batch[k].to(self.device)
-                elif isinstance(batch[k], List):
-                    batch[k] = [self.move_batch_to_device(e) for e in batch[k]]
-                elif isinstance(batch[k], Dict):
-                    batch[k] = {k2: self.move_batch_to_device(v) for k2, v in batch[k].items()}
-                else:
-                    raise Exception(f"unsupported batch element")
-        else:
-            raise Exception(f"unrecognized batch type: {type(batch)}")
-
-        return batch
-
     def train_step(self, mode: str, batch_index: int, batch_data):
         # - latent representations
         self.model.train()
@@ -270,7 +253,7 @@ class Trainer(TrainerBase):
             if self.limit_batch_count is not None:
                 if batch_index > self.limit_batch_count:
                     break
-            self.validate_step(mode=mode, batch_index=batch_index, batch_data=self.move_batch_to_device(batch_data))
+            self.validate_step(mode=mode, batch_index=batch_index, batch_data=move_batch_to_device(batch_data, device=self.device))
         return self.monitor_metrics(epoch_index=epoch_index, mode=mode)
 
     @torch.no_grad()

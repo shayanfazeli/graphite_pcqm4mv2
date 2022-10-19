@@ -4,13 +4,14 @@ import torch.utils.data.dataloader
 import torchvision.transforms
 import graphite.data.pcqm4mv2.pyg.collator as collate_fn_lib
 from graphite.data.handler.base import DataHandlerBase
-from graphite.data.pcqm4mv2.pyg import PCQM4Mv2Dataset, PCQM4Mv23DDataset, PCQM4Mv2DatasetFull # the 2d dataset
+from graphite.data.pcqm4mv2.pyg import PCQM4Mv2Dataset, PCQM4Mv23DDataset, PCQM4Mv2DatasetFull, MultiviewPCQM4Mv2Dataset # the 2d dataset
 import graphite.data.pcqm4mv2.pyg.transforms as transforms_lib
 
 dataset_classes = {
     'PCQM4Mv2Dataset': PCQM4Mv2Dataset,
     'PCQM4Mv23DDataset': PCQM4Mv23DDataset,
-    'PCQM4Mv2DatasetFull': PCQM4Mv2DatasetFull
+    'PCQM4Mv2DatasetFull': PCQM4Mv2DatasetFull,
+    'MultiviewPCQM4Mv2Dataset': MultiviewPCQM4Mv2Dataset
 }
 
 

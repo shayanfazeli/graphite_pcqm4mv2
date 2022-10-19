@@ -104,7 +104,7 @@ def collate_fn(batch):
     if 'pairwise_distances' in batch[0]:
         output['pairwise_distances'] = pad_sequence_2d(
             [g['pairwise_distances'] for g in batch], pad_value=-1, stack_dim=0, max_len=max_node_count
-        )
+        )[0]
 
     for k in output:
         if isinstance(k, torch.Tensor):
@@ -117,13 +117,14 @@ def default_collate_fn_with_kpgt(batch):
     fingerprint = torch.stack([g.fingerprint for g in batch])
     molecule_descriptor = torch.stack([g.molecule_descriptor for g in batch])
 
-    if 'pairwise_distances' in batch[0]:
+    there_is_pairwise_distances = 'pairwise_distances' in batch[0]
+    if there_is_pairwise_distances:
         pairwise_distances = pad_sequence_2d(
             [g['pairwise_distances'] for g in batch],
             pad_value=-1,
             stack_dim=0,
             max_len=max([g.num_nodes for g in batch])
-        )
+        )[0]
         for i in range(len(batch)):
             del batch[i].pairwise_distances
 
@@ -134,6 +135,25 @@ def default_collate_fn_with_kpgt(batch):
 
     g.molecule_fingerprint = fingerprint.float()
     g.molecule_descriptor = torch.nan_to_num(molecule_descriptor[:, 1:], nan=0).float()
+    if there_is_pairwise_distances:
+        g.pairwise_distances = pairwise_distances
+    g.node_counts = torch.tensor([g[i].num_nodes for i in range(len(g))])
+    return g
+
+
+def collate_fn_1(batch):
+    if 'pairwise_distances' in batch[0]:
+        pairwise_distances = pad_sequence_2d(
+            [g['pairwise_distances'] for g in batch],
+            pad_value=-1,
+            stack_dim=0,
+            max_len=max([g.num_nodes for g in batch])
+        )[0]
+        for i in range(len(batch)):
+            del batch[i].pairwise_distances
+
+    g = default_collate_fn(batch)
+    del g.pairwise_distances
     if 'pairwise_distances' in batch[0]:
         g.pairwise_distances = pairwise_distances
     g.node_counts = torch.tensor([g[i].num_nodes for i in range(len(g))])
@@ -141,7 +161,7 @@ def default_collate_fn_with_kpgt(batch):
 
 
 def default_multiview_collate_fn(batch):
-    return [default_collate_fn(list(e)) for e in list(zip(*batch))]
+    return [collate_fn_1(list(e)) for e in list(zip(*batch))]
 
 
 def default_multiview_collate_fn_with_kpgt(batch):

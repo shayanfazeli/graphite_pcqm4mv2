@@ -1,0 +1,56 @@
+
+model = dict(
+    type='SingleModelMultiViewPretrainingWithPretexts',
+    args=dict(
+        num_layers=0,
+        input_dim=256,
+        output_dim=1,
+        model_config=dict(
+            type='CoAtGINGeneralPipeline',
+            args=dict(
+                node_encoder_config=dict(
+                    type='CoAtGIN',
+                    args=dict(
+                        num_layers=6,
+                        num_heads=16,
+                        model_dim=256,
+                        conv_hop=3,
+                        conv_kernel=2,
+                        use_virt=True,
+                        use_att=True,
+                        line_graph=False,
+                        pos_features=None
+                    )
+                ),
+                graph_pooling="sum"
+            )
+        ),
+        pretext_configs=dict(se3ddm=dict(
+            type='SE3DDMPretext',
+            args=dict(
+                weight=1.,
+                mlp_distances_args=dict(
+                    input_dim=1,
+                    output_dim=256,
+                    hidden_dim=32,
+                    num_hidden_layers=1,
+                    norm='LayerNorm',
+                    activation='ReLU',
+                    input_norm='BatchNorm1d',
+                    input_activation='none'
+                ),
+                mlp_merge_args=dict(
+                    input_dim=256,  # graph rep dim
+                    output_dim=1,
+                    hidden_dim=32,
+                    num_hidden_layers=1,
+                    norm='LayerNorm',
+                    activation='ReLU',
+                    input_norm='BatchNorm1d',
+                    input_activation='none'),
+                scale=0.1,
+                mode='with_distances'
+            )
+        ))
+    )
+)

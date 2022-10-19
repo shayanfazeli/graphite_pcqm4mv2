@@ -17,7 +17,7 @@ class SingleModelSingleViewPretrainingWithPretexts(torch.nn.Module):
             pretext_configs: Dict[str, Dict[str, Any]]
     ):
         super(SingleModelSingleViewPretrainingWithPretexts, self).__init__()
-        # raise Exception("not validated yet.")
+
         # - core model
         self.add_module('model', getattr(model_lib, model_config['type'])(**model_config['args']))
 

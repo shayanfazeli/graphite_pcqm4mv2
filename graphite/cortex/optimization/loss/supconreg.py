@@ -18,7 +18,6 @@ class SupConRegLoss(torch.nn.Module):
         assert reduction in ['mean', 'sum', 'none']
         self.reduction = reduction
 
-
     def forward(self, features: torch.Tensor, labels: torch.Tensor):
         assert labels.ndim == 1
         assert features.ndim == 2

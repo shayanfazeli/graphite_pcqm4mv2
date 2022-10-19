@@ -41,7 +41,7 @@ class PCQM4Mv2Dataset(DGLDataset):
         self._url_2d = url_2d
         self._url_3d = url_3d
         self.smiles2graph = smiles2graph
-        super(PCQM4Mv2, self).__init__(
+        super(PCQM4Mv2Dataset, self).__init__(
             name='pcqm4mv2',
             url=None,  # overriding it
             raw_dir=osp.join(root_dir, 'raw'),
@@ -208,12 +208,3 @@ def collate_dgl(samples):
     else:
         return batched_graph, labels
 
-
-if __name__ == '__main__':
-    dataset = PCQM4Mv2(root_dir='~/gt')
-    print(dataset)
-    print(dataset[100])
-    split_dict = dataset.get_idx_split()
-    print(split_dict)
-    print(dataset[split_dict['train']])
-    print(collate_dgl([dataset[0], dataset[1], dataset[2]]))
