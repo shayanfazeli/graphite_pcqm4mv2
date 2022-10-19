@@ -3,14 +3,14 @@ from typing import List
 from torch_geometric.data import Data
 import torch
 import torch.nn
-
+import graphite.data.utilities.pcqm4mv2_meta as PCQM4MV2_METADATA
 from graphite.data.pcqm4mv2.pyg.transforms.base import BasePygGraphitePCQM4MTransform
 
 
 class EncodeNode2NodeConnectionType(BasePygGraphitePCQM4MTransform):
     def __init__(
             self,
-            num_edge_types: int = 27
+            num_edge_types: int = PCQM4MV2_METADATA.num_discrete_bond_types
     ):
         """constructor"""
         super(EncodeNode2NodeConnectionType, self).__init__()

@@ -2,6 +2,9 @@ from typing import List
 from torch_geometric.data import Data
 import torch
 import torch.nn
+import ogb
+import ogb.utils.features
+import graphite.data.utilities.pcqm4mv2_meta as PCQM4MV2_META
 from graphite.data.pcqm4mv2.pyg.transforms.base import BasePygGraphitePCQM4MTransform
 from graphite.utilities.offset import add_feature_position_offset
 
@@ -18,16 +21,14 @@ class EncodeNodeType(BasePygGraphitePCQM4MTransform):
     """
     def __init__(
             self,
-            vocabulary_lengths: List[int] = [
-                36, 3, 7, 7, 5, 4, 6, 2, 2
-            ],  # [119, 4, 12, 12, 10, 6, 6, 2, 2] ogb.utils.features.get_atom_feature_dims()
+            vocabulary_lengths: List[int] = PCQM4MV2_META.atom_feature_dims,
     ):
         """constructor"""
         super(EncodeNodeType, self).__init__()
         self.vocabulary_lengths = vocabulary_lengths
-        self.offset = max(vocabulary_lengths) + 1
-        self.num_node_types = self.offset * len(vocabulary_lengths) # 332
-        self.task_node_type = self.num_node_types + 1  # 333
+        self.offset = max(self.vocabulary_lengths) + 1
+        self.num_node_types = self.offset * len(self.vocabulary_lengths) - 1  # 1080 - 1
+        self.task_node_type = self.num_node_types + 1  # 1080
 
     def forward(self, g: Data) -> Data:
         """
@@ -42,6 +43,5 @@ class EncodeNodeType(BasePygGraphitePCQM4MTransform):
         ----------
         `Data`: the `node_type` tensor is added to the graph and it is returned.
         """
-        # g['node_type'] = self.convert_to_id(g.x)
         g['node_type'] = add_feature_position_offset(g.x, offset=self.offset)
         return g

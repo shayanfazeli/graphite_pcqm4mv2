@@ -82,7 +82,7 @@ docker run --ipc=host --gpus all -v $PWD:/workspace -v /data/pcqm4mv2_datahub:/w
 
 For example:
 ```
-nvidia-docker run -d --ipc=host --gpus all -v $PWD:/workspace -v /data/pcqm4mv2_datahub:/data/pcqm4mv2_datahub -p 4043:8888 --hostname localhost --rm -it graphite /bin/bash 
+nvidia-docker run -d --ipc=host --gpus all -v $PWD:/workspace -v /data/pcqm4mv2_datahub:/data/pcqm4mv2_datahub -p 4044:8888 --hostname localhost --rm -it graphite /bin/bash 
 ```
 
 ```

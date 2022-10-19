@@ -1,4 +1,3 @@
-from typing import List
 from torch_geometric.data import Data
 from torch_geometric.utils import degree
 import torch
@@ -12,11 +11,9 @@ class EncodeNodeDegreeCentrality(BasePygGraphitePCQM4MTransform):
     """
     def __init__(
             self,
-            max_degree: int = 20
     ):
         """constructor"""
         super(EncodeNodeDegreeCentrality, self).__init__()
-        self.max_degree = max_degree
 
     def forward(self, g: Data) -> Data:
         """

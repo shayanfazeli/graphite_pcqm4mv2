@@ -1,7 +1,7 @@
 import torch
 import torch.nn
 from torch_geometric.loader.dataloader import Collater
-
+import graphite.data.utilities.pcqm4mv2_meta as PCQM4MV2_METADATA
 from graphite.data.pcqm4mv2.pyg.transforms import LineGraphTransform
 from graphite.data.utilities.sequence_collate.utilities import pad_sequence, pad_sequence_2d
 
@@ -20,7 +20,7 @@ default_collate_fn = Collater([], [
 
 def collate_fn(batch):
     """collation"""
-    no_edge_val = 8
+    no_edge_val = PCQM4MV2_METADATA.no_distance_val
     graphs = default_collate_fn(batch)
     node_counts = torch.LongTensor([graphs[i].num_nodes for i in range(len(batch))])
     max_node_count = node_counts.max().item()
@@ -55,7 +55,7 @@ def collate_fn(batch):
             [g['node2node_connection_type'] for g in batch],
             pad_dims=(0, 1),
             max_len=max_node_count,
-            pad_value=30,
+            pad_value=PCQM4MV2_METADATA.num_discrete_bond_types+3,
             stack_dim=0)[0].long()
 
     if 'shortest_path_feature_trajectory' in batch[0]:

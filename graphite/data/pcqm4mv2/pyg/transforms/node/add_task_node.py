@@ -3,14 +3,14 @@ from typing import List
 from torch_geometric.data import Data
 import torch
 import torch.nn
-
+import graphite.data.utilities.pcqm4mv2_meta as PCQM4MV2_METADATA
 from graphite.data.pcqm4mv2.pyg.transforms.base import BasePygGraphitePCQM4MTransform
 
 
 class AddTaskNode(BasePygGraphitePCQM4MTransform):
     def __init__(
             self,
-            feat=333
+            feat=PCQM4MV2_METADATA.task_node_feat
     ):
         """constructor"""
         super(AddTaskNode, self).__init__()

@@ -6,9 +6,9 @@
 * [Datasets and Transforms](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/graphite/data/pcqm4mv2/pyg)
 
 ## In Progress Experiments
-* GRPE Large + toeplitz attention fix + KPGT losses with smaller weight than `exp7`
+* GRPE Large with modifications (cont'd)
 ```bash
-./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp8  # lambda4
+./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp9  # lambda4
 ```
 
 * CoATGIN_base (10m) on 3dbond

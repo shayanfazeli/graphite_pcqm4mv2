@@ -3,6 +3,25 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
 
 
 ## In progress...
+### `exp9`
+* Number of parameters: 117,110,017
+* base: GRPE Large
+* Upperbounding shortest path length type to `5`.
+* Upperbounding node-degree in degree centrality encoding to `5`.
+* Using ogb methods like `ogb.utils.features.get_atom_feature_dims()` to set vocabulary size
+  * __Remark__: atom-feature vocabulary lengths were set based on dataset stats which was: `36, 3, 7, 7, 5, 4, 6, 2, 2`
+    * In OGB it is `[119, 4, 12, 12, 10, 6, 6, 2, 2] `
+    * Edge vocab is also `4, 3, 2`, and ogb is `5, 6, 2`
+    * The values we use are based on dataset stats and the values that are actually observed in this dataset. This
+    does NOT include the SDF file, and refers only to smiles-based mol objects.
+* Longer (usual) training sequence of 400 epochs with effective batchsize of `4*300` instead of original `8*64`, and twice the learning rate.
+* Observations:
+  * 
+
+## To run:
+
+
+## Previously...
 ### `exp8`
 * Number of parameters: 116,753,929
 * base: GRPE Large
@@ -14,12 +33,12 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
 * Modified learning schedule: larger learning rate and shorter sequence
 * Cosine annealing instead of polynomialLR
 * Observations:
+  * The shorter-training sequence still failed, and it appeared that removing the extra components that were present
+  in exp7 led to slower fitting validation as well.
+* WandB Report [[Link](https://wandb.ai/shayanfazeli/graphite_grpe_docker/reports/GRPE-Large-exp7-and-exp8--VmlldzoyODE5NDYw?accessToken=8c8t10ggo6dt0qz4daa510p068qrjs6az76bfa1ipssjd86sg91ytbtmvbbn6wjr)]
 
 
-## To run:
 
-
-## Previously...
 ### `exp7`
 * base: GRPE Large
 * Added Graphormer path encoding, node encoding, and toeplitz corrections

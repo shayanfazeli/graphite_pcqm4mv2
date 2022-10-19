@@ -9,6 +9,7 @@ from .attention_bias import DiscreteConnectionTypeEmbeddingAttentionBias, Discre
 from .attention_bias.path_feature_trajectory_encoding import PathTrajectoryEncodingAttentionBias
 from .layers.encoder import EncoderLayer
 from ..encoders.node.pcqm4mv2 import EmbedPCQM4Mv2NodeFeatures
+import graphite.data.utilities.pcqm4mv2_meta as PCQM4MV2_METADATA
 
 
 class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
@@ -120,7 +121,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             self.attention_bias_edge = DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
-                num_connection_types=31,
+                num_connection_types=PCQM4MV2_METADATA.num_discrete_bond_types + 4,
             ) if 'edge' in self.attention_biases else None
             self.attention_bias_shortest_path_length = DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
@@ -130,7 +131,7 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             self.attention_bias_edge_complementary_values = DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
-                num_connection_types=31,
+                num_connection_types=PCQM4MV2_METADATA.num_discrete_bond_types + 4,
             ) if 'edge' in self.attention_biases else None
             self.attention_bias_shortest_path_length_complementary_values = DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
                 model_dim=model_dimension,
@@ -146,12 +147,12 @@ class GraphRelativePositionalEncodingNetworkAdvanced(torch.nn.Module):
             self.attention_bias_edge = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBias(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
-                num_connection_types=31,
+                num_connection_types=PCQM4MV2_METADATA.num_discrete_bond_types + 4,
             ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)})
             self.attention_bias_edge_complementary_values = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
                 model_dim=model_dimension,
                 num_heads=number_of_heads,
-                num_connection_types=31,
+                num_connection_types=PCQM4MV2_METADATA.num_discrete_bond_types + 4,
             ) if 'edge' in self.attention_biases else None for i in range(self.number_of_layers)})
             self.attention_bias_shortest_path_length_complementary_values = torch.nn.ModuleDict({i: DiscreteConnectionTypeEmbeddingAttentionBiasComplementaryValues(
                 model_dim=model_dimension,
