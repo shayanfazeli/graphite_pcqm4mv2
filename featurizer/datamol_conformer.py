@@ -10,6 +10,7 @@ from loguru import logger
 
 import numpy as np
 
+from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDistGeom
 from rdkit.Chem import rdMolAlign
@@ -36,7 +37,7 @@ def generate(
     minimize_energy: bool = False,
     sort_by_energy: bool = True,
     method: Optional[str] = None,
-    forcefield: str = "UFF",
+    forcefield: str = "MMFF94s",
     ewindow: float = np.inf,
     eratio: float = np.inf,
     energy_iterations: int = 200,
@@ -133,7 +134,7 @@ def generate(
 
     # Add hydrogens
     if add_hs:
-        mol = dm_mol.add_hs(mol)
+        mol = Chem.AddHs(mol)
 
     rotatable_bonds = descriptors.n_rotatable_bonds(mol)
     if not n_confs:
@@ -173,7 +174,6 @@ def generate(
 
     # Minimize energy
     if minimize_energy:
-
         # Minimize conformer's energy using MMFF
         ff = _get_ff(mol, forcefield)
         results = rdForceFieldHelpers.OptimizeMoleculeConfs(
@@ -195,27 +195,27 @@ def generate(
             energies.append(ff.CalcEnergy())
         energies = np.array(energies)
 
-    if energies is not None:
-        minE = np.min(energies)
-        # Add the energy as a property to each conformers
-        [
-            (
-                conf.SetDoubleProp(f"rdkit_{forcefield}_energy", energy),
-                conf.SetDoubleProp(f"rdkit_{forcefield}_delta_energy", energy - minE),
-            )
-            for energy, conf in zip(energies, mol.GetConformers())
-        ]
+    #if energies is not None:
+    #    minE = np.min(energies)
+    #    # Add the energy as a property to each conformers
+    #    [
+    #        (
+    #            conf.SetDoubleProp(f"rdkit_{forcefield}_energy", energy),
+    #            conf.SetDoubleProp(f"rdkit_{forcefield}_delta_energy", energy - minE),
+    #        )
+    #        for energy, conf in zip(energies, mol.GetConformers())
+    #    ]
 
-        # Now we reorder conformers according to their energies,
-        # so the lowest energies conformers are first.  eliminate conformers that exceed ewindow, eratio
-        mol_clone = copy.deepcopy(mol)
-        ordered_conformers = [
-            conf
-            for E, conf in sorted(zip(energies, mol_clone.GetConformers()), key=lambda x: x[0])
-            if E - minE <= ewindow and (E - minE) / rotatable_bonds <= eratio
-        ]
-        mol.RemoveAllConformers()
-        [mol.AddConformer(conf, assignId=True) for conf in ordered_conformers]
+    #    # Now we reorder conformers according to their energies,
+    #    # so the lowest energies conformers are first.  eliminate conformers that exceed ewindow, eratio
+    #    mol_clone = copy.deepcopy(mol)
+    #    ordered_conformers = [
+    #        conf
+    #        for E, conf in sorted(zip(energies, mol_clone.GetConformers()), key=lambda x: x[0])
+    #        if E - minE <= ewindow and (E - minE) / rotatable_bonds <= eratio
+    #    ]
+    #    mol.RemoveAllConformers()
+    #    [mol.AddConformer(conf, assignId=True) for conf in ordered_conformers]
 
     # Align conformers to each others
     if align_conformers:
@@ -229,8 +229,9 @@ def generate(
             centroids=True,
         )  # type: ignore
 
-#     if add_hs:
-#         mol = dm_mol.remove_hs(mol)
+    if add_hs:
+        # mol = dm_mol.remove_hs(mol)
+        mol = Chem.RemoveHs(mol)
 
     return mol, energies
 
