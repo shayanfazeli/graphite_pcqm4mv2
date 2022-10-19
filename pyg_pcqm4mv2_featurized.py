@@ -145,7 +145,7 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
             def batched_mol():
                 for start_idx in range(0, total, batch_size):
                     mols = []
-                    for i in range(batch_size):
+                    for i in range(min(start_idx + batch_size, total)):
                         mols.append(sdf_mols[start_idx + i])
                     yield None, mols,  start_idx
             with Pool(self.num_workers, initializer=None, initargs=None) as pool:
