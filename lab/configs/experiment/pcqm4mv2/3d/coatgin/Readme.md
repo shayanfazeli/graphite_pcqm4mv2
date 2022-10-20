@@ -1,8 +1,5 @@
 # 3D CoATGIN
 
-19496481
-
-
 ## Experiment Group: `3d_bond`
 ### Exp 1
 * number of parameters: 9,770,769
@@ -28,6 +25,7 @@ pos_mask = torch.any(edge_attr[:, 3:], dim=1, keepdim=True)
 ea = self.bond_encoder[layer](edge_attr[:, :3].long()) + pos_mask * self.pos_encoder[layer](edge_attr[:, 3:])
 
 ```
+* WandB Report: [[Link](https://wandb.ai/shayanfazeli/graphite_coatgin_docker/reports/CoAtGIN-base-Generated-conformer-3d-KPGT-Losses--VmlldzoyODI2MTQ2?accessToken=ia83542v1bkk6h3l8bac0jt5hzand8i4mi3fqprluoqtsqxt3zu1sutcp0u751ss)]
 
 ### Exp 2
 * number of parameters:
@@ -43,6 +41,7 @@ ea = self.bond_encoder[layer](edge_attr[:, :3].long()) + pos_mask * self.pos_enc
 ### Exp 1
 Same setup as the exp1 for `3d_bond`, with additional KPGT loss.
 * params: 10,086,361
+* WandB Report: [[Link](https://wandb.ai/shayanfazeli/graphite_coatgin_docker/reports/CoAtGIN-base-Generated-conformer-3d-KPGT-Losses--VmlldzoyODI2MTQ2?accessToken=ia83542v1bkk6h3l8bac0jt5hzand8i4mi3fqprluoqtsqxt3zu1sutcp0u751ss)]
 
 
 ## Base experiments: Deprecated

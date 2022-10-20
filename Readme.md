@@ -3,7 +3,6 @@
 ## Introduction
 * [Quickstart](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/getting_started.md)
 * [Sample Experiment](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/lab/configs/experiment/pcqm4mv2/2d/grpe)
-* [Datasets and Transforms](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/graphite/data/pcqm4mv2/pyg)
 
 ## In Progress Experiments
 * GRPE Large with modifications (cont'd)
@@ -18,7 +17,7 @@
 
 * CoATGIN_base (10m) on 3dbond + KPGT Losses
 ```bash
-./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_kpgt_exp1 # lambda5
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_exp3 # lambda5
 ```
 
 
