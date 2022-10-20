@@ -35,7 +35,7 @@ class PCQM4Mv23DDataset(InMemoryDataset):
             descriptor=False,
             fingerprint=False,
             conformers_memmap: str = None,
-            conformer_pool_size: int = 0,
+            conformer_pool_size: int = 1,
             fingerprint_memmap: str = None,
             descriptor_memmap: str = None,
     ):
@@ -52,7 +52,7 @@ class PCQM4Mv23DDataset(InMemoryDataset):
         root_dir = osp.join(root, 'pcqm4m-v2')
         self.root_dir = root_dir
         self.smiles2graph = smiles2graph
-        self.folder = osp.join(root, "pcqm4m-v2")
+        self.folder = root_dir
         self.version = 1
         self.split_dict_filepath = split_dict_filepath
         self.descriptor = descriptor
@@ -67,8 +67,8 @@ class PCQM4Mv23DDataset(InMemoryDataset):
             mode='r',
             shape=(3746620, 10, 60, 3)
         ) if conformers_memmap is not None else None
-        self.num_conformers_to_return = conformer_pool_size
-        assert self.num_conformers_to_return <= 10, "up to 10 conformers are supported at the moment"
+        self.conformer_pool_size = conformer_pool_size
+        assert self.conformer_pool_size <= 10, "up to 10 conformers are supported at the moment"
 
         self.fingerprint_memmap = np.memmap(
             fingerprint_memmap,
@@ -112,6 +112,29 @@ class PCQM4Mv23DDataset(InMemoryDataset):
             self.load_data()
 
         return super().__getitem__(idx)
+
+    def get(self, idx):
+        g = super().get(idx)
+
+        if self.fingerprint:
+            if self.fingerprint_memmap is None and 'fingerprint' not in g:
+                raise Exception("~> the cached dataset, as is, does not contain fingerprint information."
+                                "please consider recreating the dataset or to provide fingerprint memmap.")
+
+            if 'fingerprint' not in g:
+                g['fingerprint'] = torch.from_numpy(np.array(self.fingerprint_memmap[idx, :])).float()
+
+        if self.descriptor:
+            if self.descriptor_memmap is None and 'molecule_descriptor' not in g:
+                raise Exception("~> the cached dataset, as is, does not contain molecule descriptor information."
+                                "please consider recreating the dataset or to provide molecule descriptor memmap.")
+
+            if 'molecule_descriptor' not in g:
+                g['molecule_descriptor'] = torch.from_numpy(np.array(self.descriptor_memmap[idx, :])).float()
+
+        if self.include_positions and 'positions_3d' not in g:
+            g.positions_3d = torch.from_numpy(np.array(self.conformers_memmap[idx, np.random.choice(self.conformer_pool_size), :g.num_nodes, :]))
+        return g
 
     @property
     def raw_file_names(self):
@@ -189,7 +212,7 @@ class PCQM4Mv23DDataset(InMemoryDataset):
                 data['positions_3d'] = positions
             else:
                 data['positions_3d'] = torch.from_numpy(np.array(
-                    self.conformers_memmap[i, np.random.choice(self.num_conformers_to_return), :data.num_nodes, :]))
+                    self.conformers_memmap[i, np.random.choice(self.conformer_pool_size), :data.num_nodes, :]))
 
             if self.descriptor:
                 mol = rdkit.Chem.MolFromSmiles(smiles)

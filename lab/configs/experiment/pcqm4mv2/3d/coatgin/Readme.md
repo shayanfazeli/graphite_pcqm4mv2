@@ -1,5 +1,8 @@
 # 3D CoATGIN
 
+19496481
+
+
 ## Experiment Group: `3d_bond`
 ### Exp 1
 * number of parameters: 9,770,769
@@ -29,6 +32,11 @@ ea = self.bond_encoder[layer](edge_attr[:, :3].long()) + pos_mask * self.pos_enc
 ### Exp 2
 * number of parameters:
 * This experiment is leveraging the contrastive denoising objective of [this article](https://arxiv.org/pdf/2206.13602.pdf).
+
+### Exp 3
+* The same as Exp1 except:
+  * Larger version of CoAtGIN (deeper with 12 layers and 19,496,481 parameters)
+  * The 3d bond dataset __from SDF__ for train and using generated conformers for val
 
 
 ## Experiment Group: `3d_bond_kpgt`

@@ -151,6 +151,7 @@ class PCQM4Mv2DatasetFull(InMemoryDataset):
         print("Converting SMILES strings into graphs...")
         from graphite.contrib.kpgt.data.descriptors.rdDescriptors import RDKit2D
         from graphite.contrib.kpgt.data.descriptors.rdNormalizedDescriptors import RDKit2DNormalized
+
         data_list = []
         for i in tqdm(range(len(smiles_list))):
             data = Data()
