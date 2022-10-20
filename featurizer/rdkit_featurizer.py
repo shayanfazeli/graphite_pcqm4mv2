@@ -91,7 +91,7 @@ def get_descriptor3d_array(descriptors_3d):
         col_num += l
     return descriptors
 
-ogb_atom_features = {
+ogb_atom_features = [
         "atomic_num",
         "chiral_tag",
         "degree",
@@ -101,13 +101,13 @@ ogb_atom_features = {
         "hybridization",
         "is_aromatic",
         "atom_is_in_ring"
-}
+]
 
-ogb_bond_features = {
+ogb_bond_features = [
     "bond_type",
     "bond_stereo",
     "is_conjugated"
-}
+]
 
 
 class Featurizer(object):
@@ -190,10 +190,10 @@ class Featurizer(object):
             atom_features (list): list of atom features to extract. See `Featurizer.list_atom_features()`
             bond_features (list): list of edge features to extract. See `Featurizer.list_bond_features()`
             add_self_loop (bool): add self loops to edges for each atom
-            generate_conformer (bool): flag to generate conformers 
+            generate_conformer (bool): flag to generate conformers
             num_conformer (int): number of conformers to generate
-            generate_descriptor2d (bool): flag to generate descriptor2ds 
-            generate_descriptor3d (bool): flag to generate descriptor3ds 
+            generate_descriptor2d (bool): flag to generate descriptor2ds
+            generate_descriptor3d (bool): flag to generate descriptor3ds
         """
 
         if atom_features is None:
@@ -207,9 +207,9 @@ class Featurizer(object):
         self.include_rings = include_rings #any(['in_num_ring_with' in af for af in self.atom_features])
         self.include_fingerprints = include_fingerprints
         self.include_daylight_fg = include_daylight_fg
-        self.generate_conformer = generate_conformer 
-        self.generate_descriptor2d = generate_descriptor2d 
-        self.generate_descriptor3d = generate_descriptor3d 
+        self.generate_conformer = generate_conformer
+        self.generate_descriptor2d = generate_descriptor2d
+        self.generate_descriptor3d = generate_descriptor3d
         self.num_conformers = num_conformers
         self.conformer_memmap = conformer_memmap
         self.descriptor2d_memmap = descriptor2d_memmap
@@ -222,29 +222,29 @@ class Featurizer(object):
             return Chem.MolFromSmiles(item)
         else: # - assume it's already a mol
             return item
-    
+
     def get_atom_features(self):
         return self.atom_features + Featurizer.atom_float_names
-    
+
     def get_bond_features(self):
         return self.bond_features
 
     @staticmethod
     def get_descriptors2d_features():
         return list(DESCRIPTORS_METADATA_2D.keys())
-    
+
     @staticmethod
     def get_descriptors3d_features():
         return list(DESCRIPTORS_METADATA_3D.keys())
-    
+
     @staticmethod
     def get_descriptors2d_metadata():
         return DESCRIPTORS_METADATA_2D
-    
+
     @staticmethod
     def get_descriptors3d_metadata():
         return DESCRIPTORS_METADATA_3D
-    
+
     def smiles_to_graph(self,
                         batch_smile: Optional[Union[List[str], str]] = None,
                         batch_mol_3d: Optional[Union[List[Chem.rdchem.Mol], Chem.rdchem.Mol]] = None,
@@ -264,9 +264,11 @@ class Featurizer(object):
 
         all_data = []
         dl = range(0, len(batch))
-        if current_process()._identity[0] == 1 and len(batch) > 1:
+        if (current_process()._identity) and \
+            current_process()._identity[0] == 1 and \
+            len(batch) > 1:
             dl = tqdm(dl)
-  
+
         for idx in dl:
             mol = self.to_mol(batch[idx])
             data = defaultdict(list)
@@ -276,9 +278,9 @@ class Featurizer(object):
             if self.include_rings:
                 ring_list = Featurizer.get_ring_size(mol)
             for i, atom in enumerate(mol.GetAtoms()):
-                feat_dict = self.atom_to_feature_vector_all(atom, self.atom_features)
-                atom_feat = [v for _, v in feat_dict.items()]
+                feat_dict = self.atom_to_feature_vector(atom, self.atom_features)
                 # feat_dict = self.atom_to_feature_vector_all(atom, ring_list[i])
+                atom_feat = [v for _, v in feat_dict.items()]
                 data["x"].append(atom_feat)
                 if self.include_rings:
                     ring_dict = self.atom_to_feature_vector(atom, self.ring_feats, ring_list[i])
@@ -312,7 +314,7 @@ class Featurizer(object):
             else:   # mol has no bonds
                 bond_feature = np.empty((0, len(self.bond_features)), dtype=np.int32)
                 data["edge_index"] = np.empty((2, 0), dtype=np.int32)
-            
+
             # data["dist_matrix"] = np.array(rdkit.Chem.rdmolops.GetDistanceMatrix(mol)).reshape(1, -1)
             if self.include_rings:
                 data["ring_sizes"] = np.array(data["ring_sizes"], dtype=np.int32)
@@ -323,7 +325,7 @@ class Featurizer(object):
                 morgan_fp = np.array(Featurizer.get_morgan_fingerprint(mol), np.int32).reshape(1, -1)
                 maccs_fp = np.array(Featurizer.get_maccs_fingerprint(mol), np.int32).reshape(1, -1)
                 data["fingerprint"] = np.concatenate([morgan_fp, maccs_fp], axis=1)
-            
+
             if self.include_daylight_fg:
                 data['daylight_fg_counts'] = np.array(Featurizer.get_daylight_functional_group_counts(mol), np.int32).reshape(1, -1)
 
@@ -340,19 +342,20 @@ class Featurizer(object):
 
             elif self.descriptor2d_memmap is not None:
                 data["descriptor_2d"] = self.descriptor2d_memmap[start_idx + idx]
-            
+
+            new_mol = mol
             if self.generate_conformer or self.generate_additional_conformers_for_sdf:
                 # - generate conformer
-                num_conformers = self.num_conformers
+                num_conformers_to_gen = self.num_conformers
                 conformer_positions = []
                 if not smile_mode:
-                    num_conformers = self.num_conformers - 1 # - first one will be the original conformers pos
-                if smile_mode or self.generate_additional_conformers_for_sdf:
+                    num_conformers_to_gen = self.num_conformers - 1 # - first one will be the original conformers pos
+                if num_conformers_to_gen and (smile_mode or self.generate_additional_conformers_for_sdf):
                     try:
                         new_mol, energy = datamol_conf_gen(mol,
                                                         add_hs=True,
                                                         minimize_energy=True,
-                                                        n_confs=int(num_conformers),
+                                                        n_confs=num_conformers_to_gen,
                                                         forcefield="MMFF94s",
                                                         energy_iterations=100,
                                                         ignore_failure=True,
@@ -365,25 +368,28 @@ class Featurizer(object):
                     energy = np.asarray(energy)
                 else:
                     new_mol = mol
-                conformer_positions_ = np.zeros((N, self.num_conformers, 3))
+                if not smile_mode and (self.num_conformers == 0):
+                    self.num_conformers = 1
                 conformer_positions += [Featurizer.get_atom_poses(mol, conf) for conf in new_mol.GetConformers()]
+                conformer_positions_ = np.zeros((N, self.num_conformers, 3))
                 conformer_positions = np.stack(conformer_positions).transpose(1, 0, 2)
                 conformer_positions_[:, :conformer_positions.shape[1], :] = conformer_positions
                 data["conformer_pos"] = conformer_positions_
-            
+
             elif self.conformer_memmap is not None:
                 data["conformer_pos"] = self.conformer_memmap[start_idx + idx, :, :N, :].transpose(1, 0)
-            
+
             # - descriptors 3d
             if self.generate_descriptor3d:
                 batch_mol = [conf_to_mol(new_mol, conf.GetId()) for conf in new_mol.GetConformers()]
-                df_3 = datamol.descriptors.batch_compute_many_descriptors(batch_mol,
-                                                                properties_fn=descriptor_3d_fn_map,
-                                                                add_properties=False,
-                                                                batch_size=len(batch_mol),
-                                                                n_jobs=self.num_threads)
-                descriptors_3d_val = get_descriptor3d_array(df_3)
-                data["descriptors_3d"] = descriptors_3d_val
+                if len(batch_mol):
+                    df_3 = datamol.descriptors.batch_compute_many_descriptors(batch_mol,
+                                                                    properties_fn=descriptor_3d_fn_map,
+                                                                    add_properties=False,
+                                                                    batch_size=len(batch_mol),
+                                                                    n_jobs=self.num_threads)
+                    descriptors_3d_val = get_descriptor3d_array(df_3)
+                    data["descriptors_3d"] = descriptors_3d_val
             elif self.descriptor3d_memmap is not None:
                 data["descriptor_3d"] = self.descriptor3d_memmap[start_idx + idx]
 
@@ -561,31 +567,31 @@ class Featurizer(object):
     def get_atom_feature(atom, name):
         """get atom values"""
         if name == 'atomic_num':
-            return atom.GetAtomicNum() 
+            return atom.GetAtomicNum()
         elif name == 'chiral_tag':
-            return atom.GetChiralTag() 
+            return atom.GetChiralTag()
         elif name == 'degree':
-            return atom.GetDegree() 
+            return atom.GetDegree()
         elif name == 'explicit_valence':
-            return atom.GetExplicitValence() 
+            return atom.GetExplicitValence()
         elif name == 'formal_charge':
-            return atom.GetFormalCharge() 
+            return atom.GetFormalCharge()
         elif name == 'hybridization':
-            return atom.GetHybridization() 
+            return atom.GetHybridization()
         elif name == 'implicit_valence':
-            return atom.GetImplicitValence() 
+            return atom.GetImplicitValence()
         elif name == 'is_aromatic':
-            return int(atom.GetIsAromatic()) 
+            return int(atom.GetIsAromatic())
         elif name == 'mass':
             return int(atom.GetMass()) * 0.01
         elif name == 'total_numHs':
-            return atom.GetTotalNumHs() 
+            return atom.GetTotalNumHs()
         elif name == 'num_radical_e':
-            return atom.GetNumRadicalElectrons() 
+            return atom.GetNumRadicalElectrons()
         elif name == 'atom_is_in_ring':
-            return int(atom.IsInRing()) 
+            return int(atom.IsInRing())
         elif name == 'valence_out_shell':
-            return Featurizer.period_table.GetNOuterElecs(atom.GetAtomicNum()) 
+            return Featurizer.period_table.GetNOuterElecs(atom.GetAtomicNum())
         elif name == 'van_der_waals_radis':
              return Featurizer.period_table.GetRvdw(atom.GetAtomicNum())
         else:
