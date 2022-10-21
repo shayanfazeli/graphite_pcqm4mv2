@@ -13,6 +13,7 @@ from tqdm import tqdm
 from rdkit import Chem
 from rdkit import RDLogger
 from rdkit.Chem import AllChem
+from rdkit.Chem.BRICS import BRICSDecompose, FindBRICSBonds, BreakBRICSBonds
 from torch_geometric.data import Data
 from featurizer.day_light_fg_smarts_list import DAY_LIGHT_FG_SMARTS_LIST
 
@@ -246,24 +247,29 @@ class Featurizer(object):
         return DESCRIPTORS_METADATA_3D
 
     def smiles_to_graph(self,
-                        batch_smile: Optional[Union[List[str], str]] = None,
-                        batch_mol_3d: Optional[Union[List[Chem.rdchem.Mol], Chem.rdchem.Mol]] = None,
+                        batch: Optional[Union[List[Chem.rdchem.Mol],
+                            Chem.rdchem.Mol, List[str], str]],
+                        #batch_mol_3d: Optional[ = None,
                         start_idx: Optional[int] = 0,
+                        end_idx: Optional[int] = None,
                         ):
-        if batch_smile is not None:
-            batch = batch_smile
-            smile_mode = True
-        elif batch_mol_3d is not None:
-            batch = batch_mol_3d
-            smile_mode = False
-        else:
-            raise ValueError("need either a batch of mols or a batch of smiles")
+
 
         if not isinstance(batch, list):
             batch = [batch]
+        if isinstance(batch[0], str):
+            smile_mode = True
+        else:
+            smile_mode = False
 
         all_data = []
-        dl = range(0, len(batch))
+
+        if end_idx is not None:
+            # - assumes batch includes all items [0, total_items]
+            dl = range(start_idx, end_idx)
+        else:
+            dl = range(0, len(batch))
+
         if (current_process()._identity) and \
             current_process()._identity[0] == 1 and \
             len(batch) > 1:
@@ -541,7 +547,9 @@ class Featurizer(object):
             sub_structs = Chem.Mol.GetSubstructMatches(mol, fg_mol, uniquify=True)
             fg_counts.append(len(sub_structs))
         return fg_counts
-
+    @staticmethod
+    def get_fragment(mol):
+        pass
     @staticmethod
     def get_ring_size(mol):
         """return (N,6) list"""

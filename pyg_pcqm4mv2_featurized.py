@@ -24,17 +24,20 @@ from ogb.utils.features import (atom_to_feature_vector, bond_to_feature_vector)
 from rdkit import Chem
 import tarfile
 
+from featurizer.constants import *
+
 class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
-    def __init__(self, 
+    def __init__(self,
                  featurizer,
-                 root: str = 'dataset',  
-                 transform = None, 
-                 pre_transform = None, 
+                 root: str = 'dataset',
+                 transform = None,
+                 pre_transform = None,
                  include_sdf: bool = False,
                  num_workers: int = 1,
                  batch_size: Optional[int] = None,
+                 prepend_sdf: bool = False,
                  **kwargs):
-        
+
         '''
             Pytorch Geometric Featurized PCQM4Mv2 dataset object
                 - root (str): the dataset folder will be located at root/pcqm4m_kddcup2021
@@ -47,7 +50,7 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
         self.folder = osp.join(root, 'pcqm4m-v2')
         self.version = 1
         self.batch_size = batch_size
-
+        self.prepend_sdf = prepend_sdf
         self.num_workers = num_workers
         self.include_sdf = include_sdf
         # Old url hosted at Stanford
@@ -102,16 +105,22 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
         smiles_list = data_df['smiles'].to_list()
         homolumogap_list = data_df['homolumogap'].to_list()
         featurizer = self.featurizer
-        total = len(data_df)
+        end_idx = len(data_df)
+        total = end_idx
 
         if self.batch_size is None:
             batch_size = max(1, total // self.num_workers)
         else:
             batch_size = self.batch_size
 
+        smiles_idx_start = 0
+        if not self.prepend_sdf:
+            smiles_idx_start = NUM_TRAIN_SAMPLES
+            total = total - smiles_idx_start
+
         def batched_smile():
-            for start_idx in range(0, total, batch_size):
-                yield smiles_list[start_idx: min(total, start_idx + batch_size)], None, start_idx
+            for start_idx in range(smiles_idx_start, end_idx, batch_size):
+                yield smiles_list[start_idx: min(end_idx, start_idx + batch_size)], start_idx
 
         all_data = []
         with Pool(self.num_workers, initializer=None, initargs=None) as pool:
@@ -120,7 +129,7 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
                 pool.join()
         # - flatten
         data_list = []
-        i = 0
+        i = smiles_idx_start
         with tqdm(total=total) as pbar:
             for batch_data_dict in result:
                 for data_dict in batch_data_dict:
@@ -133,9 +142,10 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
                     i += 1
                     data_list.append(data)
                     pbar.update(1)
+
         if self.include_sdf:
-            sdf_mols = Chem.SDMolSupplier(osp.join(self.original_root, 'pcqm4m-v2-train.sdf'))
             sdf_data_list = []
+            sdf_mols = Chem.SDMolSupplier(osp.join(self.original_root, 'pcqm4m-v2-train.sdf'))
             total = len(sdf_mols)
 
             if self.batch_size is None:
@@ -143,13 +153,13 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
             else:
                 batch_size = self.batch_size
             def batched_mol():
-                for start_idx in range(0, total, batch_size):
-                    mols = []
-                    for i in range(min(start_idx + batch_size, total)):
-                        mols.append(sdf_mols[start_idx + i])
-                    yield None, mols,  start_idx
+                for start_idx in range(0, total):
+                    yield None, sdf_mols[start_idx], start_idx
             with Pool(self.num_workers, initializer=None, initargs=None) as pool:
-                result = list(pool.starmap(featurizer.smiles_to_graph, batched_mol()))
+                ds = pool.imap(featurizer.smiles_to_graph, sdf_mols)
+                result = []
+                for i, data in tqdm(enumerate(ds), total=total):
+                    result.append(data)
                 pool.close()
                 pool.join()
 
@@ -166,10 +176,10 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
                         i += 1
                         sdf_data_list.append(data)
                         pbar.update(1)
-    
-    
+
+
             data_list = sdf_data_list + data_list#[len(sdf_data_list):]
-            
+
         if self.pre_transform is not None:
             data_list = [self.pre_transform(data) for data in data_list]
 
@@ -179,10 +189,4 @@ class PygPCQM4Mv2FeaturizedDataset(InMemoryDataset):
 
     def get_idx_split(self):
         split_dict = replace_numpy_with_torchtensor(torch.load(osp.join(self.root, 'split_dict.pt')))
-        if self.include_sdf:
-            split_dict['train'] = torch.arange(0, 2 * len(split_dict['train']))
-            for k in split_dict:
-                if k != 'train':
-                    split_dict[k] = split_dict[k] + len(split_dict['train']) // 2
-
         return split_dict
