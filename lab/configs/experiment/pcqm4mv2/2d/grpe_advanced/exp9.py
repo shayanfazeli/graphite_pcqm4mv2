@@ -189,6 +189,7 @@ trainer = dict(
         ),
         mixed_precision=True,
         mixed_precision_backend='amp',
+        clip_gradient=10.
         # limit_batch_count=100
     )
 )

@@ -5,7 +5,7 @@
 ```
 
 ```bash
-./lab/configs/experiment/pcqm4mv2/2d/coatgin/run.sh 2d_linegraph  # l5
+./lab/configs/experiment/pcqm4mv2/2d/coatgin/run_resume.sh 2d_linegraph lp3ct1dl # l5
 ```
 
 
