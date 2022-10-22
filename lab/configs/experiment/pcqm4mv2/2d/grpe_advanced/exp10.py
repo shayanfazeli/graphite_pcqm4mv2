@@ -51,7 +51,7 @@ data = dict(
 )
 
 model = dict(
-    type='RegressorWithKPGTFusion',
+    type='RegressorWithKPGTAttentionFusion',
     args=dict(
         model_config=dict(
             args=dict(
@@ -68,7 +68,6 @@ model = dict(
             type='L1Loss',
             args=dict()
         ),
-        kpgt_latent_dim=256,
         num_layers=3
     )
 )

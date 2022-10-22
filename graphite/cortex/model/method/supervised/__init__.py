@@ -1,1 +1,1 @@
-from .regression import Regressor, RegressorWithKPGTRegularization, RegressorWithKPGTFusion
+from .regression import Regressor, RegressorWithKPGTRegularization, RegressorWithKPGTFusion, RegressorWithKPGTAttentionFusion

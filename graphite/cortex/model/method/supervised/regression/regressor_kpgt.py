@@ -249,3 +249,91 @@ class RegressorWithKPGTFusion(torch.nn.Module):
             y=y,
             loss=loss,
         )
+
+
+class RegressorWithKPGTAttentionFusion(torch.nn.Module):
+    def __init__(
+            self,
+            input_dim: int,
+            output_dim: int,
+            num_layers: int,
+            model_config: Dict[str, Any],
+            loss_config: Dict[str, Any],
+    ):
+        super(RegressorWithKPGTAttentionFusion, self).__init__()
+
+        # - core model
+        self.add_module('model', getattr(model_lib, model_config['type'])(**model_config['args']))
+
+        self.criterion = getattr(loss_lib, loss_config['type'])(**loss_config['args'])
+
+        # - projector
+        self.projector = CustomMLPHead(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            input_norm='BatchNorm1d',
+            activation='GELU',
+            norm='LayerNorm',
+            dropout=0.2,
+            hidden_dim=input_dim,
+            num_hidden_layers=num_layers,
+
+        )
+
+        self.kpgt_fingerprint_head = CustomMLPHead(
+            input_dim=512,
+            input_norm='none',
+            num_hidden_layers=3,
+            dropout=0.2,
+            activation='GELU',
+            hidden_dim=input_dim,
+            norm='LayerNorm',
+            output_dim=input_dim
+        )
+
+        self.kpgt_descriptor_head = CustomMLPHead(
+            input_dim=200,
+            input_norm='none',
+            num_hidden_layers=3,
+            dropout=0.2,
+            activation='GELU',
+            hidden_dim=input_dim,
+            norm='LayerNorm',
+            output_dim=input_dim
+        )
+        self.softmax = torch.nn.Softmax(dim=-1)
+        self.fusion_weights = torch.nn.parameter.Parameter(torch.tensor([[5., 1., 1.]]))
+
+    def forward(self, batch_data):
+        # - getting the latent representation and main loss
+        y = batch_data['y']
+
+        latent_reps = self.model(batch_data)
+        # - kpgt latent heads
+        kpgt_latent_fp = self.kpgt_fingerprint_head(batch_data['molecule_fingerprint'])
+        kpgt_latent_desc = self.kpgt_descriptor_head(batch_data['molecule_descriptor'])
+
+        latent_reps = torch.stack((latent_reps, kpgt_latent_fp, kpgt_latent_desc), dim=0)  # 3, B, input_dim
+        latent_reps = torch.mean(self.softmax(self.fusion_weights).view(-1, 1, 1) * latent_reps, dim=0)  # B, input_dim
+
+        preds = self.projector(latent_reps).squeeze()
+        loss = self.criterion(preds, y)
+
+        if torch.isnan(loss).item():
+            logger.error(f"""
+
+            NaN Loss Encountered
+
+            loss: {loss.item():.4f}
+            torch.isnan(preds).any(): {torch.isnan(preds).any():.4f}
+            torch.isnan(latent_reps).any(): {torch.isnan(latent_reps).any():.4f}
+
+            """)
+            raise Exception(f"nan loss exception")
+
+        return loss, dict(
+            latent_reps=latent_reps,
+            preds=preds,
+            y=y,
+            loss=loss,
+        )
