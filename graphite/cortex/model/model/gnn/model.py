@@ -87,7 +87,7 @@ class GatedLinearBlock(nn.Module):
         return xx
 
 
-class ConvMessage(MessagePassing):
+class ConvMessageComenet(MessagePassing):
     """
     VoVNet: [https://arxiv.org/abs/1904.09730v1](https://arxiv.org/abs/1904.09730v1)
 
@@ -171,6 +171,175 @@ class ConvMessage(MessagePassing):
     def update(self, aggr_out):
         return aggr_out
 
+
+@torch.jit.script
+def rbf(x, mean, std):
+    # x : b, n, n, 128
+    # mean: 1, 128
+    pi = 3.14159
+    a = (2 * pi) ** 0.5
+    return torch.exp(-0.5 * (((x - mean) / std) ** 2)) / (a * std)
+
+
+class GaussianBasisFunctionsLayer(nn.Module):
+    def __init__(self, K: int= 128, atom_types: int = 220, gbf_edge_attr: bool = False):
+        super().__init__()
+        self.K = K
+        self.means = nn.Embedding(1, K)
+        self.stds = nn.Embedding(1, K)
+        self.mul = nn.Embedding(atom_types, 1, padding_idx=0)
+        self.bias = nn.Embedding(atom_types, 1, padding_idx=0)
+        self.gbf_edge_attr = gbf_edge_attr
+        if self.gbf_edge_attr:
+            self.mul_edge_attr = nn.Embedding(18, 1, padding_idx=0)
+            self.bias_edge_attr = nn.Embedding(18, 1, padding_idx=0)
+        nn.init.uniform_(self.means.weight, 0, 3)
+        nn.init.uniform_(self.stds.weight, 0, 3)
+        nn.init.constant_(self.bias.weight, 0)
+        nn.init.constant_(self.mul.weight, 1)
+
+    def forward(self, x):
+        """
+        Parameters
+        ----------
+        x: `torch.Tensor`, required
+            The concatenated edge attribute of dim: `N, 3+3+3 + 1 + 1`
+        """
+        # N is total number of edges in the `Batch`
+        edge_attr, pos_i, pos_j, atom_type_ij = torch.split(x, [3, 3, 3, 2], dim=1)
+        dist = torch.linalg.norm(pos_i - pos_j, dim=1, ord=2, keepdim=True)  # N, 1
+        if self.gbf_edge_attr:
+            mul = self.mul(atom_type_ij).sum(dim=-2) + self.mul_edge_attr(edge_attr).sum(dim=-2) # N, 1
+            bias = self.bias(atom_type_ij).sum(dim=-2) + self.bias_edge_attr(edge_attr).sum(dim=-2) # N, 1
+        else:
+            mul = self.mul(atom_type_ij).sum(dim=-2)  # N, 1
+            bias = self.bias(atom_type_ij).sum(dim=-2)  # N, 1
+        scaled_dist = mul * dist + bias  # N,1
+        scaled_dist = scaled_dist.expand(-1, self.K)  # N, K
+
+        mean = self.means.weight.float().view(-1)
+        std = self.stds.weight.float().view(-1).abs() + 1e-2
+
+        return rbf(scaled_dist, mean, std).type_as(self.means.weight)  # N, K
+
+
+class ConvMessage(MessagePassing):
+    """
+    VoVNet: [https://arxiv.org/abs/1904.09730v1](https://arxiv.org/abs/1904.09730v1)
+
+    Parameters
+    ----------
+    width: `int`, required
+        The input/output dimension
+
+    width_head: `int`, required
+        The number of heads (`width` must be divisible by it)
+
+    width_scale: `int`, required
+        The bottleneck scaling
+
+    hop: `int`, required
+        hop
+
+    kernel: `int`, required
+        kernel
+
+    scale_init: `float`, optional (default=0.1)
+        The initial value for scaling layer
+
+    pos_features: `int`, optional (default=None)
+        If a positive number, this means that there is 3d information and
+        this conv message has to process it. In this case, the processing is done
+        by creating the edge 3d features (using GBF) and then concatenation and
+        mlp-merging with the encoded bond features.
+
+    gbf_kernels: `int`, optional(default=128)
+        GBF parameter
+
+    gbf_edge_attr: `bool`, optional (default=False)
+        GBF parameter
+    """
+    def __init__(
+            self,
+            width: int,
+            width_head: int,
+            width_scale: int,
+            hop: int,
+            kernel: int,
+            scale_init: float = 0.1,
+            pos_features: int = None,
+            gbf_kernels: int = 128,
+            gbf_edge_attr: bool = False
+    ):
+        super().__init__(aggr="add")
+        self.width = width
+        self.hop = hop
+        self.bond_encoder = nn.ModuleList()
+        self.mlp = nn.ModuleList()
+        if pos_features is not None:
+            self.pos_encoder = nn.ModuleList()
+        self.pos_features = pos_features
+        self.scale = nn.ModuleList()
+        for _ in range(hop * kernel):
+            self.bond_encoder.append(BondEncoder(emb_dim=width))
+            if pos_features is not None:
+                self.pos_encoder.append(
+                    torch.nn.Sequential(
+                        GaussianBasisFunctionsLayer(
+                            K=gbf_kernels,
+                            gbf_edge_attr=gbf_edge_attr
+                        ),
+                        CustomMLPHead(
+                            input_dim=gbf_kernels,
+                            output_dim=width,
+                            input_norm='none',
+                            num_hidden_layers=0,
+                            hidden_dim=width,
+                            activation='ReLU',
+                            norm='none',
+                            output_norm='none',
+                            dropout=0.
+                        )
+                    )
+                )
+                self.merge_bond_with_pos_mlp = CustomMLPHead(
+                            input_dim=2*width,
+                            output_dim=width,
+                            input_norm='none',
+                            num_hidden_layers=1,
+                            hidden_dim=width,
+                            activation='ReLU',
+                            norm='BatchNorm1d',
+                            output_norm='LayerNorm',
+                            dropout=0.1
+                        )
+            self.mlp.append(GatedLinearBlock(width, width_head, width_scale))
+            self.scale.append(ScaleDegreeLayer(width, scale_init))
+
+    def forward(self, x, node_degree, edge_index, edge_attr):
+        for layer in range(len(self.mlp)):
+            if layer == 0:
+                x_raw, x_out = x, 0
+            elif layer % self.hop == 0:
+                x_raw, x_out = x + x_out, 0
+            if self.pos_features is None:
+                ea = self.bond_encoder[layer](edge_attr[:, :3].long())
+            else:
+                ea = self.merge_bond_with_pos_mlp(
+                    torch.cat((
+                            self.bond_encoder[layer](edge_attr[:, :3].long()),
+                            self.pos_encoder[layer](edge_attr)), dim=-1)
+                )
+
+            x_raw = self.propagate(edge_index, x=x_raw, edge_attr=ea, layer=layer)
+            x_out = x_out + self.scale[layer](x_raw, node_degree)
+        return x_out
+
+    def message(self, x_j, edge_attr, layer):
+        return self.mlp[layer](x_j + edge_attr)
+
+    def update(self, aggr_out):
+        return aggr_out
 
 class ConvMessageForLineGraph(MessagePassing):
     """
