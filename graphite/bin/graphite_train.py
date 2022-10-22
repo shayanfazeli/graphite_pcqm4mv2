@@ -4,6 +4,7 @@ import torch
 import torch.cuda
 import torch.distributed
 from graphite.utilities.config.manager.utilities import read_config
+from graphite.utilities.debug import install_pdb_handler
 from graphite.utilities.device import get_device
 from graphite.utilities.miscellaneous import count_parameters
 from graphite.utilities.randomization.seed import fix_random_seeds

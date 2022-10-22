@@ -5,7 +5,7 @@ from .model import GraphRelativePositionalEncodingNetwork, \
     CustomMLPHead
 
 # - methods
-from .method import Regressor, RegressorWithKPGTRegularization, \
+from .method import Regressor, RegressorWithKPGTRegularization, RegressorWithKPGTFusion, \
     SingleModelSingleViewPretrainingWithPretexts, SingleModelMultiViewPretrainingWithPretexts
 
 # - pretexts

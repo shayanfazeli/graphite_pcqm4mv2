@@ -1,2 +1,2 @@
-from .supervised import Regressor, RegressorWithKPGTRegularization
+from .supervised import Regressor, RegressorWithKPGTRegularization, RegressorWithKPGTFusion
 from .self_supervised import SingleModelMultiViewPretrainingWithPretexts, SingleModelSingleViewPretrainingWithPretexts

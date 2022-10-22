@@ -4,6 +4,7 @@ import torch
 import torch.nn
 import graphite.cortex.model as model_lib
 import graphite.cortex.optimization.loss as loss_lib
+from graphite.cortex.model import CustomMLPHead
 from graphite.utilities.logging import get_logger
 
 logger = get_logger(__name__)
@@ -133,10 +134,25 @@ class RegressorWithKPGTRegularization(torch.nn.Module):
         loss_kpgt = self.kpgt_fingerprint_loss_coeff * kpgt_loss_fp + self.kpgt_descriptor_loss_coeff * kpgt_loss_desc
 
         if torch.isnan(loss+loss_kpgt).item():
-            logger.error("nan loss encountered!\n\n\n\n")
-            sys.exit(0)
-            # import pdb
-            # pdb.set_trace()
+            logger.error(f"""
+            
+            NaN Loss Encountered
+            
+            torch.isnan(kpgt_logits_fp).any(): {torch.isnan(kpgt_logits_fp).any()}
+            kpgt_logits_fp.mean(): {kpgt_logits_fp.mean()}
+            kpgt_logits_fp.abs().max(): {kpgt_logits_fp.abs().max()}
+            kpgt_logits_fp.abs().min(): {kpgt_logits_fp.abs().min()}
+            
+            kpgt_loss_fp: {kpgt_loss_fp.item():.4f}
+            kpgt_loss_desc: {kpgt_loss_desc.item():.4f}
+            loss_kpgt: {loss_kpgt.item():.4f}
+            
+            loss: {loss.item():.4f}
+            torch.isnan(preds).any(): {torch.isnan(preds).any():.4f}
+            torch.isnan(latent_reps).any(): {torch.isnan(latent_reps).any():.4f}
+            
+            """)
+            raise Exception(f"nan loss exception")
 
         return loss + loss_kpgt, dict(
             latent_reps=latent_reps,
@@ -146,4 +162,90 @@ class RegressorWithKPGTRegularization(torch.nn.Module):
             loss_kpgt_fp=kpgt_loss_fp,
             loss_kpgt_desc=kpgt_loss_desc,
             loss_kpgt=loss_kpgt
+        )
+
+
+class RegressorWithKPGTFusion(torch.nn.Module):
+    def __init__(
+            self,
+            input_dim: int,
+            output_dim: int,
+            num_layers: int,
+            model_config: Dict[str, Any],
+            loss_config: Dict[str, Any],
+            kpgt_latent_dim: int
+    ):
+        super(RegressorWithKPGTFusion, self).__init__()
+
+        # - core model
+        self.add_module('model', getattr(model_lib, model_config['type'])(**model_config['args']))
+
+        self.criterion = getattr(loss_lib, loss_config['type'])(**loss_config['args'])
+
+        # - projector
+        self.projector = CustomMLPHead(
+            input_dim=input_dim+kpgt_latent_dim,
+            output_dim=output_dim,
+            input_norm='BatchNorm1d',
+            activation='GELU',
+            norm='LayerNorm',
+            dropout=0.2,
+            hidden_dim=input_dim,
+            num_hidden_layers=num_layers,
+
+        )
+
+        self.kpgt_fingerprint_head = CustomMLPHead(
+            input_dim=512,
+            input_norm='none',
+            num_hidden_layers=3,
+            dropout=0.2,
+            activation='GELU',
+            hidden_dim=input_dim,
+            norm='LayerNorm',
+            output_dim=kpgt_latent_dim // 2
+        )
+
+        self.kpgt_descriptor_head = CustomMLPHead(
+            input_dim=200,
+            input_norm='none',
+            num_hidden_layers=3,
+            dropout=0.2,
+            activation='GELU',
+            hidden_dim=input_dim,
+            norm='LayerNorm',
+            output_dim=kpgt_latent_dim // 2
+        )
+
+    def forward(self, batch_data):
+        # - getting the latent representation and main loss
+        y = batch_data['y']
+
+        latent_reps = self.model(batch_data)
+        # - kpgt latent heads
+        kpgt_latent_fp = self.kpgt_fingerprint_head(batch_data['molecule_fingerprint'])
+        kpgt_latent_desc = self.kpgt_descriptor_head(batch_data['molecule_descriptor'])
+
+        latent_reps = torch.cat((latent_reps, kpgt_latent_fp, kpgt_latent_desc), dim=1)
+
+        preds = self.projector(latent_reps).squeeze()
+        loss = self.criterion(preds, y)
+
+        if torch.isnan(loss).item():
+            logger.error(f"""
+
+            NaN Loss Encountered
+
+            loss: {loss.item():.4f}
+            torch.isnan(preds).any(): {torch.isnan(preds).any():.4f}
+            torch.isnan(latent_reps).any(): {torch.isnan(latent_reps).any():.4f}
+
+            """)
+            raise Exception(f"nan loss exception")
+
+        return loss, dict(
+            latent_reps=latent_reps,
+            preds=preds,
+            y=y,
+            loss=loss,
         )
