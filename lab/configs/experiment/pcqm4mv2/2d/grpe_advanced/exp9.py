@@ -28,7 +28,7 @@ __attention_biases = [
                 ]
 __path_encoding_code_dim = 4
 __encode_node_degree_centrality = True
-__max_node_degree=5
+__max_node_degree = 5
 
 data = dict(
     args=dict(

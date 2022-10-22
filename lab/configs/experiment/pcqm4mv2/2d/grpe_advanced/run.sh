@@ -11,5 +11,5 @@ torchrun \
 --name="${1}" \
 --project="graphite_grpe_docker" \
 --gpu=0 \
---logdir="/data/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_docker" \
+--logdir="/data/pcqm4mv2_datahub/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_docker" \
 --clean

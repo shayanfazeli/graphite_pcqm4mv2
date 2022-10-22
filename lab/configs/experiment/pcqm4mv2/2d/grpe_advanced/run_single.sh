@@ -7,7 +7,7 @@ python3 ./graphite/bin/graphite_train.py ./lab/configs/experiment/pcqm4mv2/2d/gr
 --name="${1}" \
 --project="graphite_grpe_advanced" \
 --gpu=${2} \
---logdir="/home/shayan/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_advanced" \
+--logdir="/data/pcqm4mv2_datahub/warehouse/graphite/pcqm4mv2/2d/graphite_grpe_advanced" \
 --clean \
 --wandb_offline \
 --wandb_apikey="382ea80a0befa8bf3f3616bc9d9b99fc46ee43bf"
