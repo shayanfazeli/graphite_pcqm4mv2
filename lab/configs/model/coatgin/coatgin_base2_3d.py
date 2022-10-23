@@ -1,0 +1,32 @@
+
+model = dict(
+    type='Regressor',
+    args=dict(
+        num_layers=0,
+        input_dim=256,
+        output_dim=1,
+        model_config=dict(
+            type='CoAtGINGeneralPipeline',
+            args=dict(
+                node_encoder_config=dict(
+                    type='CoAtGIN',
+                    args=dict(
+                        num_layers=8,
+                        num_heads=16,
+                        model_dim=256,
+                        conv_hop=3,
+                        conv_kernel=2,
+                        use_virt=True,
+                        use_att=True,
+                        line_graph=False,
+                        pos_features=128,
+                        gbf_kernels=128,
+                        gbf_edge_attr=True,
+                        pos_inclusion_strategy='random_contribution_per_graph'
+                    )
+                ),
+                graph_pooling="sum"
+            )
+        )
+    )
+)

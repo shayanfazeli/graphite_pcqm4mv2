@@ -1,5 +1,5 @@
 _base_ = [
-    './dataset_3d_kpgt.py',
+    '../dataset_2d_kpgt.py',
 ]
 
 data = dict(
