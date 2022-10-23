@@ -209,11 +209,11 @@ class GaussianBasisFunctionsLayer(nn.Module):
         edge_attr, pos_i, pos_j, atom_type_ij = torch.split(x, [3, 3, 3, 2], dim=1)
         dist = torch.linalg.norm(pos_i - pos_j, dim=1, ord=2, keepdim=True)  # N, 1
         if self.gbf_edge_attr:
-            mul = self.mul(atom_type_ij).sum(dim=-2) + self.mul_edge_attr(edge_attr).sum(dim=-2) # N, 1
-            bias = self.bias(atom_type_ij).sum(dim=-2) + self.bias_edge_attr(edge_attr).sum(dim=-2) # N, 1
+            mul = self.mul(atom_type_ij.long()).sum(dim=-2) + self.mul_edge_attr(edge_attr.long()).sum(dim=-2) # N, 1
+            bias = self.bias(atom_type_ij.long()).sum(dim=-2) + self.bias_edge_attr(edge_attr.long()).sum(dim=-2) # N, 1
         else:
-            mul = self.mul(atom_type_ij).sum(dim=-2)  # N, 1
-            bias = self.bias(atom_type_ij).sum(dim=-2)  # N, 1
+            mul = self.mul(atom_type_ij.long()).sum(dim=-2)  # N, 1
+            bias = self.bias(atom_type_ij.long()).sum(dim=-2)  # N, 1
         scaled_dist = mul * dist + bias  # N,1
         scaled_dist = scaled_dist.expand(-1, self.K)  # N, K
 
@@ -258,6 +258,15 @@ class ConvMessage(MessagePassing):
 
     gbf_edge_attr: `bool`, optional (default=False)
         GBF parameter
+
+    pos_inclusion_strategy: `str`, optional (default='')
+        * 'concat_and_project':
+            * concatenate the positional features with bond features and pass through mlp
+        * 'random_contribution':
+            * generate a $\lambda$ from uniform distribution over 0 and 1 and then use that
+            as the contribution of the positional feature
+        * 'random_contribution_per_graph'
+            * The same as 'random_contribution', however, a fixed lambda per graph in the batch
     """
     def __init__(
             self,
@@ -269,9 +278,11 @@ class ConvMessage(MessagePassing):
             scale_init: float = 0.1,
             pos_features: int = None,
             gbf_kernels: int = 128,
-            gbf_edge_attr: bool = False
+            gbf_edge_attr: bool = True,
+            pos_inclusion_strategy: str = 'random_contribution',
     ):
         super().__init__(aggr="add")
+        self.pos_inclusion_strategy = pos_inclusion_strategy
         self.width = width
         self.hop = hop
         self.bond_encoder = nn.ModuleList()
@@ -293,7 +304,7 @@ class ConvMessage(MessagePassing):
                             input_dim=gbf_kernels,
                             output_dim=width,
                             input_norm='none',
-                            num_hidden_layers=0,
+                            num_hidden_layers=1,
                             hidden_dim=width,
                             activation='ReLU',
                             norm='none',
@@ -302,21 +313,22 @@ class ConvMessage(MessagePassing):
                         )
                     )
                 )
-                self.merge_bond_with_pos_mlp = CustomMLPHead(
-                            input_dim=2*width,
-                            output_dim=width,
-                            input_norm='none',
-                            num_hidden_layers=1,
-                            hidden_dim=width,
-                            activation='ReLU',
-                            norm='BatchNorm1d',
-                            output_norm='LayerNorm',
-                            dropout=0.1
-                        )
+                if self.pos_inclusion_strategy == 'concat_and_project':
+                    self.merge_bond_with_pos_mlp = CustomMLPHead(
+                                input_dim=2*width,
+                                output_dim=width,
+                                input_norm='none',
+                                num_hidden_layers=1,
+                                hidden_dim=width,
+                                activation='ReLU',
+                                norm='BatchNorm1d',
+                                output_norm='LayerNorm',
+                                dropout=0.1
+                            )
             self.mlp.append(GatedLinearBlock(width, width_head, width_scale))
             self.scale.append(ScaleDegreeLayer(width, scale_init))
 
-    def forward(self, x, node_degree, edge_index, edge_attr):
+    def forward(self, x, node_degree, edge_index, edge_attr, batch):
         for layer in range(len(self.mlp)):
             if layer == 0:
                 x_raw, x_out = x, 0
@@ -325,11 +337,26 @@ class ConvMessage(MessagePassing):
             if self.pos_features is None:
                 ea = self.bond_encoder[layer](edge_attr[:, :3].long())
             else:
-                ea = self.merge_bond_with_pos_mlp(
-                    torch.cat((
-                            self.bond_encoder[layer](edge_attr[:, :3].long()),
-                            self.pos_encoder[layer](edge_attr)), dim=-1)
-                )
+                if self.pos_inclusion_strategy == 'concat_and_project':
+                    ea = self.merge_bond_with_pos_mlp(
+                        torch.cat((
+                                self.bond_encoder[layer](edge_attr[:, :3].long()),
+                                self.pos_encoder[layer](edge_attr)), dim=-1)
+                    )
+                elif self.pos_inclusion_strategy == 'random_contribution':
+                    if self.training:
+                        lambda_coeff = torch.rand((edge_attr.shape[0], 1), device=x.device)
+                        ea = self.bond_encoder[layer](edge_attr[:, :3].long()) * (1-lambda_coeff) + lambda_coeff * self.pos_encoder[layer](edge_attr)
+                    else:
+                        ea = self.bond_encoder[layer](edge_attr[:, :3].long())
+                elif self.pos_inclusion_strategy == 'random_contribution_per_graph':
+                    if self.training:
+                        lambda_coeff = torch.rand(len(batch)).gather(0, batch.batch).unsqueeze(-1)
+                        ea = self.bond_encoder[layer](edge_attr[:, :3].long()) * (1-lambda_coeff) + lambda_coeff * self.pos_encoder[layer](edge_attr)
+                    else:
+                        ea = self.bond_encoder[layer](edge_attr[:, :3].long())
+                else:
+                    raise Exception(f"Unknown pos inclusion strategy: {self.pos_inclusion_strategy}")
 
             x_raw = self.propagate(edge_index, x=x_raw, edge_attr=ea, layer=layer)
             x_out = x_out + self.scale[layer](x_raw, node_degree)
@@ -340,6 +367,7 @@ class ConvMessage(MessagePassing):
 
     def update(self, aggr_out):
         return aggr_out
+
 
 class ConvMessageForLineGraph(MessagePassing):
     """
@@ -499,7 +527,10 @@ class CoAtGIN(pt.nn.Module):
             line_graph: bool = False,
             num_heads: int = 16,
             expansion: int = 1,
-            pos_features: int = None
+            pos_features: int = None,
+            gbf_kernels: int = 128,
+            gbf_edge_attr: bool = True,
+            pos_inclusion_strategy: str = 'random_contribution'
     ):
         """
         Parameters
@@ -547,7 +578,10 @@ class CoAtGIN(pt.nn.Module):
                     width_scale=expansion,
                     hop=conv_hop,
                     kernel=conv_kernel,
-                    pos_features=pos_features
+                    pos_features=pos_features,
+                    gbf_kernels=gbf_kernels,
+                    gbf_edge_attr=gbf_edge_attr,
+                    pos_inclusion_strategy=pos_inclusion_strategy
                 ))
             self.virt.append(VirtMessage(model_dim, num_heads, 2) if use_virt else None)
             self.att.append(AttMessage(model_dim, num_heads, 2) if use_att else None)
@@ -562,7 +596,7 @@ class CoAtGIN(pt.nn.Module):
         h_in, h_virt, h_att = self.atom_encoder(x), 0, 0
 
         for layer in range(self.num_layers):
-            h_out = h_in + self.conv[layer](h_in, node_degree, edge_index, edge_attr)
+            h_out = h_in + self.conv[layer](h_in, node_degree, edge_index, edge_attr, batch)
             if self.virt[layer] is not None:
                 h_tmp, h_virt = self.virt[layer](h_in, h_virt, batch, batch_size)
                 h_out, h_tmp = h_out + h_tmp, None
