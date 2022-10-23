@@ -263,11 +263,52 @@ class Trainer(TrainerBase):
         self.metrics_forward(mode=mode, outputs=outputs)
         return loss
 
+    @torch.no_grad()
+    def predict_epoch(
+            self,
+            mode: str,
+            epoch_index: int,
+            dataloader
+    ):
+        assert not self.args.distributed, "pure inference must take place in a single-gpu mode."
+        log_message(logger, f"""
+            ~> prediction (split: {mode}) - [epoch: {epoch_index}]
+            """, self.args)
+        self.model.eval()
+        dataloader_tqdm = tqdm(enumerate(dataloader))
+        inference_results = dict(preds=[])
+        for batch_index, batch_data in dataloader_tqdm:
+            if self.limit_batch_count is not None:
+                if batch_index > self.limit_batch_count:
+                    break
+            outputs = {k: v.data.cpu() for k, v in self.validate_step(
+                mode=mode,
+                batch_index=batch_index,
+                batch_data=move_batch_to_device(batch_data, device=self.device)
+            ).items()}
+            inference_results['preds'].append(outputs['preds'])
+
+        inference_results['preds'] = torch.cat(inference_results['preds'], dim=0)
+        filepath = os.path.join(self.args.logdir, 'ckpts', f"inference-mode={mode}-epoch={epoch_index}.pth")
+        torch.save(inference_results, filepath)
+        log_message(logger, f"~> inference checkpoint on mode='{mode}' is stored (filepath={filepath}).", self.args)
+
+    @torch.no_grad()
+    def predict_step(self, mode: str, batch_index: int, batch_data):
+        self.model.eval()
+        outputs = self.model.predict(batch_data)
+        return outputs
+
     def resume(self):
         filepath = os.path.join(self.args.logdir, 'ckpts', f"epoch=latest.pth")
         data = torch.load(filepath, map_location='cpu')
 
-        self.model.load_state_dict(data['model'])
+        try:
+            self.model.load_state_dict(data['model'])
+        except Exception as e:
+            self.model.load_state_dict({k[len('module.'):]: v for k, v in data['model'].items()}, strict=True)
+            log_message(logger, "~> multi-gpu trained checkpoint is loaded on single gpu.", self.args)
+
         self.optimizer.load_state_dict(data['optimizer'])
         self.scheduler.load_state_dict(data['scheduler'])
 
@@ -296,7 +337,7 @@ class Trainer(TrainerBase):
             if prefix is None:
                 filepath = os.path.join(self.args.logdir, 'ckpts', f"epoch=latest.pth")
             else:
-                filepath = os.path.join(self.args.logdir, 'ckpts', f"epoch={epoch_index}{prefix}.pth")
+                filepath = os.path.join(self.args.logdir, 'ckpts', f"{prefix}.pth")
 
             if self.mixed_precision:
                 if self.mixed_precision_backend == 'amp':
@@ -339,6 +380,24 @@ class Trainer(TrainerBase):
 
             self.save(epoch_index=epoch_index)
             self.reset_metrics()
+
+    def evaluate(self):
+        log_message(logger, '~> running...\n', self.args)
+        # - trying to resume
+        if self.args.resume:
+            log_message(logger, "~> attempting to resume from existing checkpoint", self.args)
+            self.resume()
+        else:
+            log_message(logger, "\t\t[!] Evaluating without a checkpoint. Are you sure?", self.args, level="warning")
+        log_message(logger, f"~> evaluation with a {self.start_epoch}-epoch-trained checkpoint", self.args)
+
+        for mode in [e for e in self.modes if 'test' in e]:
+            self.predict_epoch(
+                epoch_index=self.start_epoch,
+                dataloader=self.dataloaders[mode],
+                mode=mode
+            )
+
 
     def metric_forward(self, metric_name: str, mode: str, outputs: Dict[str, Any]) -> torch.Tensor:
         """

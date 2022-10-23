@@ -49,3 +49,12 @@ class Regressor(torch.nn.Module):
             y=y,
             loss=loss
         )
+
+    def predict(self, batch_data):
+        latent_reps = self.model(batch_data)
+        preds = self.projector(latent_reps).squeeze()
+
+        return dict(
+            latent_reps=latent_reps,
+            preds=preds,
+        )

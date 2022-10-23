@@ -1,1 +1,1 @@
-from .two_dimensional import Pyg2DPCQM4Mv2
+from .handler import Pyg2DPCQM4Mv2

@@ -1,3 +1,4 @@
 from .edge_encoding import EncodeEdgeType
 from .comenet_features_3d import ComenetEdgeFeatures
 from .radius_graph import RadiusGraphEdges
+from .concatenate_atom_positions_to_edge_attr import ConcatenateAtomPositionsToEdgeAttributes

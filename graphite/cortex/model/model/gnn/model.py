@@ -351,7 +351,7 @@ class ConvMessage(MessagePassing):
                         ea = self.bond_encoder[layer](edge_attr[:, :3].long())
                 elif self.pos_inclusion_strategy == 'random_contribution_per_graph':
                     if self.training:
-                        lambda_coeff = torch.rand(len(batch)).gather(0, batch.batch).unsqueeze(-1)
+                        lambda_coeff = torch.rand(len(batch), device=x.device).gather(0, batch).unsqueeze(-1)
                         ea = self.bond_encoder[layer](edge_attr[:, :3].long()) * (1-lambda_coeff) + lambda_coeff * self.pos_encoder[layer](edge_attr)
                     else:
                         ea = self.bond_encoder[layer](edge_attr[:, :3].long())
@@ -589,6 +589,7 @@ class CoAtGIN(pt.nn.Module):
 
     def forward(self, batched_data: Batch) -> torch.Tensor:
         x, edge_index, edge_attr, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.batch
+        batch_edge = batch[edge_index[0]]
 
         batch_size = len(batched_data.ptr) - 1
         node_degree = degree(edge_index[1], len(x)).long() - 1
@@ -596,7 +597,7 @@ class CoAtGIN(pt.nn.Module):
         h_in, h_virt, h_att = self.atom_encoder(x), 0, 0
 
         for layer in range(self.num_layers):
-            h_out = h_in + self.conv[layer](h_in, node_degree, edge_index, edge_attr, batch)
+            h_out = h_in + self.conv[layer](h_in, node_degree, edge_index, edge_attr, batch_edge)
             if self.virt[layer] is not None:
                 h_tmp, h_virt = self.virt[layer](h_in, h_virt, batch, batch_size)
                 h_out, h_tmp = h_out + h_tmp, None

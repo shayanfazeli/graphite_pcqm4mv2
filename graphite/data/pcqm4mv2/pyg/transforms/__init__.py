@@ -8,5 +8,6 @@ from .node import AddTaskNode, \
     Position3DGaussianNoise
 from .edge import EncodeEdgeType, \
     ComenetEdgeFeatures, \
-    RadiusGraphEdges
+    RadiusGraphEdges, \
+    ConcatenateAtomPositionsToEdgeAttributes
 from .graph import LineGraphTransform

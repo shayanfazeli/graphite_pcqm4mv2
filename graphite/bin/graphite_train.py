@@ -83,7 +83,10 @@ def main(args: argparse.Namespace) -> None:
         **config['trainer']['args']
     )
 
-    trainer.run()
+    if args.evaluate:
+        trainer.evaluate()
+    else:
+        trainer.run()
     wandb.finish()
 
 

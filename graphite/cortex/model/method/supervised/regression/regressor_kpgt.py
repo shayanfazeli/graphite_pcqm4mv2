@@ -164,6 +164,15 @@ class RegressorWithKPGTRegularization(torch.nn.Module):
             loss_kpgt=loss_kpgt
         )
 
+    def predict(self, batch_data):
+        latent_reps = self.model(batch_data)
+        preds = self.projector(latent_reps).squeeze()
+
+        return dict(
+            latent_reps=latent_reps,
+            preds=preds,
+        )
+
 
 class RegressorWithKPGTFusion(torch.nn.Module):
     def __init__(
@@ -248,6 +257,19 @@ class RegressorWithKPGTFusion(torch.nn.Module):
             preds=preds,
             y=y,
             loss=loss,
+        )
+
+    def predict(self, batch_data):
+        latent_reps = self.model(batch_data)
+        kpgt_latent_fp = self.kpgt_fingerprint_head(batch_data['molecule_fingerprint'])
+        kpgt_latent_desc = self.kpgt_descriptor_head(batch_data['molecule_descriptor'])
+
+        latent_reps = torch.cat((latent_reps, kpgt_latent_fp, kpgt_latent_desc), dim=1)
+        preds = self.projector(latent_reps).squeeze()
+
+        return dict(
+            latent_reps=latent_reps,
+            preds=preds,
         )
 
 
@@ -336,4 +358,20 @@ class RegressorWithKPGTAttentionFusion(torch.nn.Module):
             preds=preds,
             y=y,
             loss=loss,
+        )
+
+    def predict(self, batch_data):
+        latent_reps = self.model(batch_data)
+        # - kpgt latent heads
+        kpgt_latent_fp = self.kpgt_fingerprint_head(batch_data['molecule_fingerprint'])
+        kpgt_latent_desc = self.kpgt_descriptor_head(batch_data['molecule_descriptor'])
+
+        latent_reps = torch.stack((latent_reps, kpgt_latent_fp, kpgt_latent_desc), dim=0)  # 3, B, input_dim
+        latent_reps = torch.mean(self.softmax(self.fusion_weights).view(-1, 1, 1) * latent_reps, dim=0)  # B, input_dim
+
+        preds = self.projector(latent_reps).squeeze()
+
+        return dict(
+            latent_reps=latent_reps,
+            preds=preds,
         )

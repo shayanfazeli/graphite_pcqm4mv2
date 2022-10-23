@@ -25,6 +25,8 @@ def base_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--wandb_offline", action="store_true", help="""
     If this parameter is set to true, the wandb logging will take place in an offline manner.
     If provided as true, the `wandb_apikey` has to be set as well.""")
+    parser.add_argument("--evaluate", action="store_true", help="""
+        If `True` the script will go into evaluation mode and generates test results.""")
     parser.add_argument("--wandb_apikey", type=str, required=False, default=None, help="""
         wandb api key""")
     parser.add_argument("--gpu", required=False, default=None, help="The gpu device to use. this will be overriden in case of distributed `torchrun` script.", type=int)
