@@ -1,5 +1,5 @@
-import abc
 from typing import Dict, List, Any
+import numpy
 import torch.utils.data.dataloader
 import torchvision.transforms
 import graphite.data.pcqm4mv2.pyg.collator as collate_fn_lib
@@ -13,7 +13,6 @@ dataset_classes = {
     'PCQM4Mv2DatasetFull': PCQM4Mv2DatasetFull,
     'MultiviewPCQM4Mv2Dataset': MultiviewPCQM4Mv2Dataset
 }
-
 
 
 class Pyg2DPCQM4Mv2(DataHandlerBase):
@@ -37,7 +36,8 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
             dataloader_base_args: Dict[str, Any],
             split_dict_filepath: str = None,
             dataset_args=dict(),
-            collate_fn='collate_fn'
+            collate_fn='collate_fn',
+            overfit_on_train_subset: int = None
     ):
         super(Pyg2DPCQM4Mv2, self).__init__()
         self.root_dir = root_dir  # '/home/shayan/from_source/GRPE/data'
@@ -50,6 +50,7 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
         self.dataloader_base_args = dataloader_base_args
         self.dataset_args = dataset_args
         self.collater_choice = collate_fn
+        self.overfit_on_train_subset = overfit_on_train_subset
 
     def get_dataloaders(self,):
         # torch.multiprocessing.freeze_support()
@@ -63,6 +64,9 @@ class Pyg2DPCQM4Mv2(DataHandlerBase):
         )
 
         split_idx = dataset.get_idx_split()
+        if self.overfit_on_train_subset is not None:
+            split_idx['train'] = numpy.random.choice(split_idx['train'], self.overfit_on_train_subset)
+
         datasets = {k: dataset[v] for k, v in split_idx.items()}
 
         samplers = dict()
