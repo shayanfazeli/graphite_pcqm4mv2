@@ -5,19 +5,12 @@
 * [Sample Experiment](https://github.com/shayanfazeli/graphite_pcqm4mv2/tree/master/lab/configs/experiment/pcqm4mv2/2d/grpe)
 
 ## In Progress Experiments
-* GRPE Large with modifications (cont'd)
 ```bash
-./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp9  # lambda4
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/ablations/run.sh coatgin_base2_3d_sdf_alwaysinclude  # lambda4
 ```
 
-* CoATGIN_base (10m) on 3dbond
 ```bash
-./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_exp1 # lambda3
-```
-
-* CoATGIN_base (10m) on 3dbond + KPGT Losses
-```bash
-./lab/configs/experiment/pcqm4mv2/3d/coatgin/run.sh 3d_bond_exp3 # lambda5
+./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp11 # lambda5
 ```
 
 
