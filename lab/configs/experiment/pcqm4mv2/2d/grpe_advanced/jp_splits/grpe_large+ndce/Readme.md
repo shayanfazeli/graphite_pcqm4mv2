@@ -5,6 +5,7 @@
 
 ## Running
 * First, please correct the paths in the base config
+* The `pcqm4mv2_datahub` repo is available at: [this link](https://drive.google.com/drive/folders/1pWE3alcpk7MsMklsJss6nv7slIvANMFC?usp=sharing)
 * Please correct `__number_of_processes = 4` in the base config to your gpu counts.
 * Multi-gpu:
   * Try: `./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/jp_splits/grpe_large+ndce/run.sh fold_0`
