@@ -6,11 +6,15 @@
 
 ## In Progress Experiments
 ```bash
-./lab/configs/experiment/pcqm4mv2/3d/coatgin/ablations/run.sh coatgin_base2_3d_sdf_alwaysinclude  # lambda4
+./lab/configs/experiment/pcqm4mv2/3d/coatgin/ablations/run.sh coatgin_base2_3d_sdf_alwaysinclude  # l3
 ```
 
 ```bash
-./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp11 # lambda5
+./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp10 # l4
+```
+
+```bash
+./lab/configs/experiment/pcqm4mv2/2d/grpe_advanced/run.sh exp11 # l5
 ```
 
 
