@@ -3,6 +3,21 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
 
 
 ## In progress...
+### `exp11`
+
+
+
+## To run:
+
+
+## Previously...
+### `exp10`
+* same as `exp9` except with KPGT projected (3 layer mlp) on fingerprint and descriptor + attention pooling
+* WandB Report: [[Link](https://wandb.ai/shayanfazeli/graphite_grpe_docker/reports/Untitled-Report--VmlldzoyODQ2NDY2?accessToken=e7rvk943n8tw7uaws89vokt5c60et386himsthizkv40n5a7idjxutalf1728aho)]
+* Observations
+  * Compared to exp9 which was with KPGT regularization, it does not seem to incur an improvement in the early training. In fact, it
+  seems that the KPGT as regularization is consistently better than it.
+
 ### `exp9`
 * Number of parameters: 117,110,017
 * base: GRPE Large
@@ -16,12 +31,12 @@ __Projects__: `graphite_grpe_advanced` and `graphite_grpe_docker`
     does NOT include the SDF file, and refers only to smiles-based mol objects.
 * Longer (usual) training sequence of 400 epochs with effective batchsize of `4*300` instead of original `8*64`, and twice the learning rate.
 * Observations:
-  * 
+  * Training is slow, clip gradient does not make much of a difference.
+  * Had to early terminate as the full training takes too long.
+* WandB Report: [[Link](https://wandb.ai/shayanfazeli/graphite_grpe_docker/reports/Exp9-with-and-without-clip-gradient--VmlldzoyODQ2NDU2?accessToken=s5qi6fqqhhkek18x14naioyn0ju7if8kxbhli0lqe7h5cjai19dj4sp6v1kayrkp)]
 
-## To run:
 
 
-## Previously...
 ### `exp8`
 * Number of parameters: 116,753,929
 * base: GRPE Large
